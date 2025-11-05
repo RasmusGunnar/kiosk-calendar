@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="da">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spotify Kiosk Wrapper</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="theme-color" content="#1db954" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="card">
+        <header>
+          <h1>Åbn Spotify</h1>
+          <p>
+            Denne kiosk-app forsøger først at starte den installerede Spotify-app.
+            Hvis det ikke lykkes, åbnes Spotify i browseren.
+          </p>
+        </header>
+        <div class="actions">
+          <button id="open-spotify" class="primary">Start Spotify</button>
+          <a
+            id="open-web"
+            class="secondary"
+            href="https://open.spotify.com/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >Åbn webafspiller</a>
+        </div>
+        <p class="hint" id="hint"></p>
+      </section>
+    </main>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
