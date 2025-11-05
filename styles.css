@@ -48,6 +48,7 @@ p {
   color: rgba(245, 245, 245, 0.85);
 }
 
+
 .actions {
   display: flex;
   flex-direction: column;
@@ -77,14 +78,13 @@ button.primary:active {
   transform: scale(0.98);
 }
 
-a.secondary {
+
   background: transparent;
   color: rgba(245, 245, 245, 0.85);
   border: 1px solid rgba(245, 245, 245, 0.18);
 }
 
-a.secondary:hover,
-a.secondary:focus {
+
   border-color: rgba(245, 245, 245, 0.35);
 }
 

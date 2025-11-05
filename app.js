@@ -37,6 +37,7 @@ openButton?.addEventListener("click", () => {
   openNativeApp();
 });
 
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
