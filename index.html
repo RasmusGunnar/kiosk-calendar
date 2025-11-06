@@ -3,60 +3,100 @@
 <html lang="da">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Spotify Player · GitHub Pages</title>
   <meta name="description" content="Spotify Web Playback SDK + PKCE på en statisk GitHub Pages-side.">
+
+  <!-- Tailwind (CDN til nem styling) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Spotify Web Playback SDK -->
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
+
   <style>
-    .btn{border-radius:0.75rem;border:1px solid #e5e7eb;padding:.5rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-    .btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.08)}
-    .card{border:1px solid #e5e7eb;border-radius:1rem;padding:1rem;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden} /* hvorfor: hold iframes inde i kortet */
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --border:#e5e7eb;
+      --text:#0f172a;
+      --radius:1.25rem;
+    }
+    html,body{height:100%}
+    body{background:var(--bg); color:var(--text)}
+    /* 16:9 friendly max width + centrering */
+    .container-16x9{max-width:min(1600px, calc(100vh * 1.7778)); margin-inline:auto}
+    @media (orientation:landscape) and (max-width:1200px){
+      .container-16x9{max-width:min(1200px, calc(100vh * 1.7778))}
+    }
+
+    .btn-pill{
+      border:1px solid var(--border);
+      border-radius:9999px;
+      padding:.5rem 1rem;
+      background:#fff;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
+    .btn-pill:hover{background:#f9fafb; box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .btn-cta{background:#111;color:#fff;border-color:#111}
+    .btn-cta:hover{background:#000}
+
+    .card-xl{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:calc(var(--radius) * 1.4);
+      padding:1rem;
+      box-shadow:0 10px 20px rgba(2,8,20,.04);
+      overflow:hidden; /* hvorfor: iframes må ikke overlappe */
+    }
+    .section-title{font-weight:600}
+    .grid-isolated{isolation:isolate} /* hvorfor: egen stacking context */
+    .layer-top{position:relative; z-index:2}
+    .layer-base{position:relative; z-index:1}
+    .embed-iframe{display:block; width:100%; height:180px; border:0; border-radius:1rem}
     dialog:not([open]){display:none}
-    .grid-isolated{isolation:isolate}  /* hvorfor: egen stacking context pr. grid */
-    .layer-top{position:relative;z-index:2}
-    .layer-base{position:relative;z-index:1}
-    .embed-iframe{display:block;width:100%;height:180px;border:0}
   </style>
 </head>
-<body class="min-h-screen bg-gray-50 text-gray-900">
-  <header class="sticky top-0 z-10 bg-white border-b">
-    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-4">
+
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
+    <div class="container-16x9 px-4 py-3 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <svg viewBox="0 0 24 24" class="w-7 h-7" aria-hidden="true"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9Zm4.5 12.3a.9.9 0 0 1-1.23.3c-3.37-2.06-7.61-2.53-12.6-1.38a.9.9 0 0 1-.39-1.76c5.43-1.22 10.12-.7 13.85 1.56.43.26.57.82.37 1.28Zm.87-3.04a1 1 0 0 1-1.36.33c-3.78-2.33-9.54-3.01-14-1.64a1 1 0 0 1-.58-1.92c4.92-1.5 11.25-.75 15.45 1.84.48.3.62.94.35 1.39Zm.2-3.15c-4.52-2.68-12.03-2.92-16.35-1.58a1.1 1.1 0 0 1-.63-2.11C6.3 4.65 14.4 4.93 19.4 7.85a1.1 1.1 0 0 1-1.16 1.89Z"></path></svg>
+        <svg viewBox="0 0 24 24" class="w-7 h-7" aria-hidden="true">
+          <path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9Zm4.5 12.3a.9.9 0 0 1-1.23.3c-3.37-2.06-7.61-2.53-12.6-1.38a.9.9 0 0 1-.39-1.76c5.43-1.22 10.12-.7 13.85 1.56.43.26.57.82.37 1.28Zm.87-3.04a1 1 0 0 1-1.36.33c-3.78-2.33-9.54-3.01-14-1.64a1 1 0 0 1-.58-1.92c4.92-1.5 11.25-.75 15.45 1.84.48.3.62.94.35 1.39Zm.2-3.15c-4.52-2.68-12.03-2.92-16.35-1.58a1.1 1.1 0 0 1-.63-2.11C6.3 4.65 14.4 4.93 19.4 7.85a1.1 1.1 0 0 1-1.16 1.89Z"></path>
+        </svg>
         <h1 class="text-lg font-semibold">Spotify på GitHub Pages</h1>
       </div>
       <div class="flex items-center gap-2">
-        <button id="btnStatus" type="button" class="btn text-sm">Status</button>
-        <button id="openSettings" type="button" class="btn text-sm">Indstillinger</button>
-        <a id="backLink" href="#" class="btn text-sm" title="Tilbage">Tilbage</a>
+        <button id="btnStatus" type="button" class="btn-pill text-sm">Status</button>
+        <button id="openSettings" type="button" class="btn-pill text-sm">Indstillinger</button>
+        <a id="backLink" href="#" class="btn-pill text-sm" title="Tilbage">Tilbage</a>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-6xl px-4 py-6">
+  <!-- Indhold -->
+  <main class="container-16x9 px-4 py-6">
     <div id="alerts" class="mb-4"></div>
 
-    <!-- GRID 1: Afspiller + Enheder (isoleret stacking) -->
-    <section class="grid grid-isolated gap-4 md:grid-cols-3">
-      <div class="card md:col-span-2 layer-top">
+    <!-- Sektion 1: Afspiller + Enheder -->
+    <section class="grid grid-isolated gap-4 lg:grid-cols-3">
+      <div class="card-xl lg:col-span-2 layer-top">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold">Afspiller</h2>
+          <h2 class="section-title">Afspiller</h2>
           <a href="https://open.spotify.com/" target="_blank" rel="noopener" class="text-sm underline">Åbn Spotify Web Player</a>
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button id="btnLogin" type="button" class="btn">Log ind med Spotify</button>
-          <button id="btnConnect" type="button" class="btn hidden">Forbind afspiller</button>
+          <button id="btnLogin" type="button" class="btn-pill">Log ind med Spotify</button>
+          <button id="btnConnect" type="button" class="btn-pill hidden">Forbind afspiller</button>
           <span id="premiumWarn" class="text-xs text-amber-700">Premium påkrævet for afspilning i browser.</span>
         </div>
 
-        <div class="mt-4 flex flex-col gap-3">
+        <div class="mt-4 grid gap-4">
           <div class="flex items-center gap-2">
-            <button id="btnPrev" type="button" class="btn" title="Forrige">⏮</button>
-            <button id="btnPlayPause" type="button" class="btn" title="Afspil/Pause">⏯</button>
-            <button id="btnNext" type="button" class="btn" title="Næste">⏭</button>
+            <button id="btnPrev" type="button" class="btn-pill" title="Forrige">⏮</button>
+            <button id="btnPlayPause" type="button" class="btn-pill" title="Afspil/Pause">⏯</button>
+            <button id="btnNext" type="button" class="btn-pill" title="Næste">⏭</button>
             <label class="ml-4 text-sm">Lyd:
               <input id="vol" type="range" min="0" max="1" step="0.01" class="align-middle ml-2">
             </label>
@@ -68,8 +108,8 @@
             <span id="durLabel" class="text-xs w-16 text-right">0:00</span>
           </div>
 
-          <div id="nowPlaying" class="flex items-center gap-3">
-            <img id="npCover" src="" alt="" class="w-16 h-16 rounded-lg object-cover border hidden">
+          <div id="nowPlaying" class="flex items-center gap-4">
+            <img id="npCover" src="" alt="" class="w-16 h-16 rounded-xl object-cover border hidden">
             <div class="min-w-0">
               <div id="npTitle" class="font-medium truncate">–</div>
               <div id="npSub" class="text-sm text-gray-600 truncate">–</div>
@@ -79,32 +119,32 @@
         </div>
       </div>
 
-      <div class="card layer-base">
-        <h2 class="font-semibold">Enheder</h2>
+      <div class="card-xl layer-base">
+        <h2 class="section-title">Enheder</h2>
         <div class="text-xs text-gray-600">Vælg aktiv enhed (Spotify Connect).</div>
         <div id="devices" class="mt-3 space-y-2"></div>
-        <button id="btnMakeThisDevice" type="button" class="btn mt-3 w-full">Afspil her i browseren</button>
+        <button id="btnMakeThisDevice" type="button" class="btn-pill w-full mt-3 btn-cta">Afspil her i browseren</button>
       </div>
     </section>
 
-    <!-- GRID 2: Søg (venstre/top) + Embed (højre) -->
-    <section class="grid grid-isolated gap-4 md:grid-cols-3 mt-6">
-      <div class="card md:col-span-2 layer-top">
-        <h2 class="font-semibold">Søg & afspil</h2>
+    <!-- Sektion 2: Søg + Embed -->
+    <section class="grid grid-isolated gap-4 lg:grid-cols-3 mt-6">
+      <div class="card-xl lg:col-span-2 layer-top">
+        <h2 class="section-title">Søg & afspil</h2>
         <div class="flex gap-2 mt-2">
-          <input id="q" class="border rounded-xl px-3 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
-          <button id="btnSearch" type="button" class="btn">Søg</button>
+          <input id="q" class="border rounded-full px-4 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
+          <button id="btnSearch" type="button" class="btn-pill">Søg</button>
         </div>
         <div id="results" class="mt-3 grid gap-2"></div>
       </div>
 
-      <div class="card layer-base">
-        <h2 class="font-semibold">Embed (valgfri)</h2>
-        <div class="text-xs text-gray-600">Indsæt Spotify URI eller URL. Vi laver den korrekte embed-adresse.</div>
-        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/...">
+      <div class="card-xl layer-base">
+        <h2 class="section-title">Embed (valgfri)</h2>
+        <div class="text-xs text-gray-600">Indsæt Spotify URI/URL. Vi laver den korrekte embed-adresse.</div>
+        <input id="embedUri" class="border rounded-full px-4 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/...">
         <div class="flex gap-2 mt-2">
-          <button id="btnEmbed" type="button" class="btn w-full">Vis embed</button>
-          <button id="btnClearEmbed" type="button" class="btn">Skjul</button>
+          <button id="btnEmbed" type="button" class="btn-pill w-full">Vis embed</button>
+          <button id="btnClearEmbed" type="button" class="btn-pill">Skjul</button>
         </div>
         <div id="embedHost" class="mt-3"></div>
       </div>
@@ -123,18 +163,18 @@
       </label>
       <div class="text-xs text-gray-600">Scopes anmodes automatisk ved login.</div>
       <div class="flex justify-end gap-2 pt-2">
-        <button id="cfgClear" type="button" class="btn">Nulstil</button>
-        <button id="cfgSave" type="button" class="btn" style="background:#111;color:#fff">Gem</button>
+        <button id="cfgClear" type="button" class="btn-pill">Nulstil</button>
+        <button id="cfgSave" type="button" class="btn-pill btn-cta">Gem</button>
       </div>
     </form>
   </dialog>
 
-  <footer class="mx-auto max-w-6xl px-4 pb-10 pt-6 text-xs text-gray-500">
+  <footer class="container-16x9 px-4 pb-10 pt-6 text-xs text-gray-500">
     © <span id="year"></span> • Bygget med Spotify Web Playback SDK + PKCE. Ikke tilknyttet Spotify.
   </footer>
 
 <script>
-/* ===== Konstanter/Utils ===== */
+/* ---------- Konstanter/Utils ---------- */
 const S = {
   scopes: [
     "streaming",
@@ -153,10 +193,10 @@ const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60)
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
 
-/* SDK ready flag (fjerner evt. advarsel) */
+/* SDK ready flag (undertrykker SDK-warning) */
 let sdkReady=false; window.onSpotifyWebPlaybackSDKReady=()=>{ sdkReady=true; };
 
-/* ===== PKCE ===== */
+/* ---------- PKCE ---------- */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
 function randomString(len=64){ const a=new Uint8Array(len); crypto.getRandomValues(a); const abc="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"; return Array.from(a).map(n=>abc[n%abc.length]).join(""); }
 async function sha256(input){ const enc=new TextEncoder().encode(input); const hash=await crypto.subtle.digest("SHA-256",enc); return base64url(hash); }
@@ -199,7 +239,7 @@ async function refreshToken(){
 function getTokenSync(){ const raw=localStorage.getItem(LS.token); return raw?JSON.parse(raw):null; }
 async function ensureToken(){ const tok=getTokenSync(); if(!tok) return null; if(Date.now()>(tok.expAt||0)){ await refreshToken(); return getTokenSync(); } return tok; }
 
-/* ===== API helper ===== */
+/* ---------- API helper ---------- */
 async function api(path, init={}, retry=true){
   const tok=await ensureToken(); if(!tok) throw new Error("Ikke logget ind");
   const headers=new Headers(init.headers||{});
@@ -212,25 +252,36 @@ async function api(path, init={}, retry=true){
   return res.json();
 }
 
-/* ===== Player / UI ===== */
+/* ---------- Player / UI ---------- */
 let player=null, deviceId=null, playing=false, duration=0, position=0, positionTimer=null;
+const arr = (x)=> Array.isArray(x) ? x.filter(Boolean) : [];
+const artistNames = (x)=> arr(x?.artists).map(a=>a?.name).filter(Boolean).join(", ") || "–";
+const ownerName = (p)=> p?.owner?.display_name || p?.owner?.id || "Playlist";
+
 function updateNowPlayingUI(state){
   const track=state?.track_window?.current_track;
   duration=state?.duration||0; position=state?.position||0;
   $("seek").value=duration?Math.floor((position/duration)*100):0;
   $("posLabel").textContent=fmt(position); $("durLabel").textContent=fmt(duration);
-  if(track){ const img=track.album?.images?.[0]?.url||""; if(img){ $("npCover").src=img; $("npCover").classList.remove("hidden"); }
-    $("npTitle").textContent=track.name||"–"; $("npSub").textContent=(track.artists||[]).map(a=>a?.name).filter(Boolean).join(", ")||"–"; }
+  if(track){
+    const img=track.album?.images?.[0]?.url||"";
+    if(img){ $("npCover").src=img; $("npCover").classList.remove("hidden"); }
+    $("npTitle").textContent=track.name||"–";
+    $("npSub").textContent=artistNames(track);
+  }
 }
-function startPositionTimer(){ if(positionTimer) clearInterval(positionTimer);
-  positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000); }
+function startPositionTimer(){
+  if(positionTimer) clearInterval(positionTimer);
+  positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000);
+}
 
-/* ===== Devices ===== */
 async function loadDevices(){
   const data=await api("/me/player/devices");
   const box=$("devices"); box.innerHTML="";
-  (data?.devices||[]).filter(Boolean).forEach(d=>{
-    const btn=document.createElement("button"); btn.type="button"; btn.className="btn w-full text-left "+(d.is_active?"bg-gray-900 text-white":"");
+  (data?.devices||[]).forEach(d=>{
+    const btn=document.createElement("button");
+    btn.type="button";
+    btn.className="btn-pill w-full text-left "+(d.is_active?"bg-gray-900 text-white border-gray-900":"");
     btn.innerHTML=`<div class="font-medium">${d.name||"(ukendt enhed)"}</div><div class="text-xs text-gray-600">${d.type||"Enhed"}${d.is_active?" • aktiv":""}</div>`;
     btn.onclick=async()=>{ await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[d.id], play:true }) }); setAlert(`Overført afspilning til <strong>${d.name||"enhed"}</strong>.`); await syncState(); };
     box.appendChild(btn);
@@ -238,17 +289,11 @@ async function loadDevices(){
   $("npDevice").textContent=deviceId?"Browser-enhed er tilgængelig":"";
 }
 
-/* ===== Playback ===== */
 async function playUris(uris){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ uris }) }); await syncState(); }
 async function playContext(context_uri){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ context_uri }) }); await syncState(); }
-async function syncState(){ try{ const state=await player.getCurrentState(); if(state){ playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; } }catch{} }
+async function syncState(){ try{ const st=await player.getCurrentState(); if(st){ playing=!st.paused; updateNowPlayingUI(st); $("btnPlayPause").textContent=st.paused?"▶️":"⏸"; } }catch{} }
 
-/* ===== Search helpers ===== */
-const arr = (x)=> Array.isArray(x) ? x.filter(Boolean) : [];
-function artistNames(x){ return arr(x?.artists).map(a=>a?.name).filter(Boolean).join(", ") || "–"; }
-function ownerName(p){ return p?.owner?.display_name || p?.owner?.id || "Playlist"; }
-
-/* ===== UI wiring ===== */
+/* ---------- Navigation/Bindings ---------- */
 function initBackLink(){
   const p=new URLSearchParams(location.search); const back=p.get("back");
   $("year").textContent=new Date().getFullYear();
@@ -258,6 +303,7 @@ function initBackLink(){
 
 function bindEvents(){
   $("btnLogin").addEventListener("click", startLogin);
+
   $("btnConnect").addEventListener("click", async ()=>{
     if(!sdkReady && !window.Spotify){ setAlert("Spotify SDK ikke klar endnu.", "error"); return; }
     if(player) player.disconnect();
@@ -268,13 +314,16 @@ function bindEvents(){
     });
     player.addListener("ready",({device_id})=>{ deviceId=device_id; setAlert("Browser-enhed klar. Vælg ‘Afspil her i browseren’ eller start et nummer.", "info"); loadDevices(); });
     player.addListener("not_ready",()=>{ deviceId=null; });
-    player.addListener("player_state_changed",(state)=>{ if(!state) return; playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; startPositionTimer(); });
+    player.addListener("player_state_changed",(st)=>{ if(!st) return; playing=!st.paused; updateNowPlayingUI(st); $("btnPlayPause").textContent=st.paused?"▶️":"⏸"; startPositionTimer(); });
     player.connect();
   });
+
   $("btnMakeThisDevice").addEventListener("click", async()=>{
     if(!deviceId){ setAlert("Forbind afspilleren først.", "error"); return; }
-    await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[deviceId], play:true }) }); await syncState(); setAlert("Afspilning overført til denne browser-enhed.");
+    await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[deviceId], play:true }) });
+    await syncState(); setAlert("Afspilning overført til denne browser-enhed.");
   });
+
   $("btnPlayPause").addEventListener("click", ()=>{ player&&player.togglePlay(); });
   $("btnNext").addEventListener("click", ()=>{ player&&player.nextTrack(); });
   $("btnPrev").addEventListener("click", ()=>{ player&&player.previousTrack(); });
@@ -282,47 +331,38 @@ function bindEvents(){
   $("seek").addEventListener("input", async (e)=>{ if(!duration) return; const pos=Math.floor((parseInt(e.target.value,10)/100)*duration); try{ await player.seek(pos);}catch{} $("posLabel").textContent=fmt(pos); });
 
   $("btnSearch").addEventListener("click", doSearch);
-
-  $("btnEmbed").addEventListener("click", ()=>{
-    const raw=$("embedUri").value.trim();
-    const url = toEmbedUrl(raw);
-    if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; }
-    $("embedHost").innerHTML=`<iframe class="embed-iframe" src="${url}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
-  });
+  $("btnEmbed").addEventListener("click", ()=>{ const raw=$("embedUri").value.trim(); const url=toEmbedUrl(raw); if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; } $("embedHost").innerHTML=`<iframe class="embed-iframe" src="${url}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`; });
   $("btnClearEmbed").addEventListener("click", ()=>{ $("embedHost").innerHTML=""; });
-  $("openSettings").addEventListener("click", ()=>{
-    const dlg=$("dlgSettings"); $("cfgClientId").value=(cfgGet().clientId||""); $("cfgRedirectUri").value=(cfgGet().redirectUri||""); dlg.showModal();
-  });
+
+  $("openSettings").addEventListener("click", ()=>{ const dlg=$("dlgSettings"); $("cfgClientId").value=(cfgGet().clientId||""); $("cfgRedirectUri").value=(cfgGet().redirectUri||""); dlg.showModal(); });
   $("cfgSave").addEventListener("click", (e)=>{ e.preventDefault(); cfgSet({ clientId:$("cfgClientId").value, redirectUri:$("cfgRedirectUri").value }); $("dlgSettings").close(); setAlert("Indstillinger gemt."); });
   $("cfgClear").addEventListener("click", ()=>{ cfgClear(); setAlert("Indstillinger nulstillet."); });
 
   $("btnStatus").addEventListener("click", showStatus);
 }
 
+/* ---------- Search/Embed helpers ---------- */
 async function doSearch(){
   const q=$("q").value.trim(); if(!q) return;
   try{
     const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
     const data=await api(`/search?${params}`);
     renderResults(data);
-  }catch(e){
-    console.error(e);
-    setAlert("Søgning fejlede: "+e.message, "error");
-  }
+  }catch(e){ console.error(e); setAlert("Søgning fejlede: "+e.message, "error"); }
 }
 
 function renderResults(data){
   const out=[];
   function card(line1,line2,playFn){
-    const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
-    el.style.position="relative"; el.style.zIndex="2"; /* hvorfor: sikre over embed på meget smalle skærme */
+    const el=document.createElement("div");
+    el.className="border rounded-2xl p-3 flex items-center justify-between gap-3 bg-white";
+    el.style.position="relative"; el.style.zIndex="2"; /* hvorfor: sikre klik over embed på smalle skærme */
     el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1||"–"}</div><div class="text-xs text-gray-600 truncate">${line2||"–"}</div></div>`;
-    const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
+    const b=document.createElement("button"); b.type="button"; b.className="btn-pill"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
   }
   arr(data?.tracks?.items).forEach(t => card(t?.name, artistNames(t), ()=>playUris([t?.uri].filter(Boolean))));
   arr(data?.albums?.items).forEach(a => card(a?.name, artistNames(a), ()=>playContext(a?.uri)));
   arr(data?.playlists?.items).forEach(p => card(p?.name, ownerName(p), ()=>playContext(p?.uri)));
-
   const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
   if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
 }
@@ -331,17 +371,14 @@ function toEmbedUrl(input){
   if(!input) return null;
   try{
     if(input.startsWith("spotify:")){
-      const parts = input.split(":"); // spotify:type:id
-      const type = parts[1], id = parts[2];
-      if(!type || !id) return null;
+      const [,type,id] = input.split(":");
+      if(!type||!id) return null;
       return `https://open.spotify.com/embed/${type}/${id}`;
     }
     if(input.startsWith("http")){
-      const u = new URL(input);
-      if(u.hostname !== "open.spotify.com") return null;
-      const seg = u.pathname.replace(/^\/+|\/+$/g,"").split("/");
-      const [type,id] = seg;
-      if(!type || !id) return null;
+      const u=new URL(input); if(u.hostname!=="open.spotify.com") return null;
+      const [type,id]=u.pathname.replace(/^\/+|\/+$/g,"").split("/");
+      if(!type||!id) return null;
       return `https://open.spotify.com/embed/${type}/${id}`;
     }
   }catch{ return null; }
@@ -353,15 +390,12 @@ async function showStatus(){
   let me=""; try{ const m=await api("/me"); me=`${m.display_name||m.id} (${m.country||"-"})`; }catch(e){ me="fejl: "+e.message; }
   let test=""; try{ const d=await api(`/search?${new URLSearchParams({ q:"test", type:"track", limit:"1" })}`); test=`OK (${d?.tracks?.items?.length||0})`; }catch(e){ test="fejl: "+e.message; }
   const exp=new Date((tok.expAt||0)).toLocaleTimeString();
-  setAlert(`<div class="mono">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
+  setAlert(`<div class="font-mono text-sm">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
 }
 
-/* ===== Boot ===== */
+/* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async ()=>{
-  $("year").textContent=new Date().getFullYear();
-  initBackLink();
-  bindEvents();
-
+  initBackLink(); bindEvents(); $("year").textContent=new Date().getFullYear();
   const p=new URLSearchParams(location.search);
   if(p.has("code")){
     try{ await exchangeToken(p.get("code")); history.replaceState({}, "", location.pathname); setAlert("Login OK. Forbind afspilleren.", "info"); }
