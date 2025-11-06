@@ -7,6 +7,7 @@ const form = document.querySelector("#link-form");
 const input = document.querySelector("#spotify-url");
 const hint = document.querySelector("#hint");
 const resetButton = document.querySelector("#reset");
+const STORAGE_KEY = "spotify-kiosk:last-src";
 
 function normaliseSpotifyValue(raw) {
   if (!raw) return null;
@@ -43,9 +44,17 @@ function normaliseSpotifyValue(raw) {
   }
 }
 
-function setFrameSource(src) {
+function setFrameSource(src, { persist = true } = {}) {
   if (!frame) return;
   frame.src = src;
+
+  if (persist && window?.localStorage) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, src);
+    } catch (error) {
+      console.error("Kunne ikke gemme Spotify-URL i localStorage", error);
+    }
+  }
 }
 
 function showHint(message, tone = "info") {
@@ -82,8 +91,28 @@ resetButton?.addEventListener("click", () => {
   );
 });
 
+function restorePersistedEmbed() {
+  if (!window?.localStorage) {
+    return null;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return normaliseSpotifyValue(stored ?? "");
+  } catch (error) {
+    console.error("Kunne ikke læse Spotify-URL fra localStorage", error);
+    return null;
+  }
+}
+
 if (frame) {
-  setFrameSource(DEFAULT_EMBED);
+  const initial = restorePersistedEmbed();
+  if (initial) {
+    setFrameSource(initial, { persist: false });
+    showHint("Vi har indlæst din senest brugte Spotify-ressource.");
+  } else {
+    setFrameSource(DEFAULT_EMBED, { persist: false });
+  }
 }
 
 if ("serviceWorker" in navigator) {
