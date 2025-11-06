@@ -14,8 +14,7 @@
     .btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.08)}
     .card{border:1px solid #e5e7eb;border-radius:1rem;padding:1rem;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-    dialog:not([open]){display:none} /* vigt.: lukket dialog må ikke blokere klik */
-    .btn, .card, a, input, button{pointer-events:auto}
+    dialog:not([open]){display:none}
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900">
@@ -46,7 +45,7 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <button id="btnLogin" type="button" class="btn">Log ind med Spotify</button>
           <button id="btnConnect" type="button" class="btn hidden">Forbind afspiller</button>
-          <span id="premiumWarn" class="text-xs text-amber-700 hidden">Premium påkrævet for afspilning i browser.</span>
+          <span id="premiumWarn" class="text-xs text-amber-700">Premium påkrævet for afspilning i browser.</span>
         </div>
 
         <div class="mt-4 flex flex-col gap-3">
@@ -113,7 +112,7 @@
       <label class="block">Redirect URI (denne sides URL)
         <input id="cfgRedirectUri" class="border rounded-xl px-3 py-2 w-full" placeholder="https://<user>.github.io/<repo>/">
       </label>
-      <div class="text-xs text-gray-600">Scopes: streaming, user-read-playback-state, user-modify-playback-state, user-read-currently-playing, playlist-read-private.</div>
+      <div class="text-xs text-gray-600">Scopes anmodes automatisk ved login.</div>
       <div class="flex justify-end gap-2 pt-2">
         <button id="cfgClear" type="button" class="btn">Nulstil</button>
         <button id="cfgSave" type="button" class="btn" style="background:#111;color:#fff">Gem</button>
@@ -126,7 +125,7 @@
   </footer>
 
 <script>
-/* ====== Konstanter / Utils ====== */
+/* ===== Konstanter/Utils ===== */
 const S = {
   scopes: [
     "streaming",
@@ -134,6 +133,7 @@ const S = {
     "user-modify-playback-state",
     "user-read-currently-playing",
     "playlist-read-private"
+    // Bemærk: vi TILFØJER IKKE 'user-read-private' her (så undgår vi 403 fra from_token)
   ],
   authz: "https://accounts.spotify.com/authorize",
   token: "https://accounts.spotify.com/api/token",
@@ -145,7 +145,7 @@ const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60)
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
 
-/* ====== PKCE ====== */
+/* ===== PKCE ===== */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
 function randomString(len=64){ const a=new Uint8Array(len); crypto.getRandomValues(a); const abc="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"; return Array.from(a).map(n=>abc[n%abc.length]).join(""); }
 async function sha256(input){ const enc=new TextEncoder().encode(input); const hash=await crypto.subtle.digest("SHA-256",enc); return base64url(hash); }
@@ -188,10 +188,9 @@ async function refreshToken(){
 function getTokenSync(){ const raw=localStorage.getItem(LS.token); return raw?JSON.parse(raw):null; }
 async function ensureToken(){ const tok=getTokenSync(); if(!tok) return null; if(Date.now()>(tok.expAt||0)){ await refreshToken(); return getTokenSync(); } return tok; }
 
-/* ====== API helper (401->refresh->retry) ====== */
+/* ===== API helper (401->refresh->retry) ===== */
 async function api(path, init={}, retry=true){
-  const tok=await ensureToken();
-  if(!tok) throw new Error("Ikke logget ind");
+  const tok=await ensureToken(); if(!tok) throw new Error("Ikke logget ind");
   const headers=new Headers(init.headers||{});
   headers.set("Authorization",`Bearer ${tok.access_token}`);
   if(init.body && !headers.has("Content-Type")) headers.set("Content-Type","application/json");
@@ -202,9 +201,8 @@ async function api(path, init={}, retry=true){
   return res.json();
 }
 
-/* ====== Player state ====== */
+/* ===== Player state / UI ===== */
 let player=null, deviceId=null, playing=false, duration=0, position=0, positionTimer=null;
-const showPremiumWarning=(b)=>$("premiumWarn").classList.toggle("hidden",!b);
 function updateNowPlayingUI(state){
   const track=state?.track_window?.current_track;
   duration=state?.duration||0; position=state?.position||0;
@@ -216,7 +214,7 @@ function updateNowPlayingUI(state){
 function startPositionTimer(){ if(positionTimer) clearInterval(positionTimer);
   positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000); }
 
-/* ====== Devices ====== */
+/* ===== Devices ===== */
 async function loadDevices(){
   const data=await api("/me/player/devices");
   const box=$("devices"); box.innerHTML="";
@@ -229,16 +227,17 @@ async function loadDevices(){
   $("npDevice").textContent=deviceId?"Browser-enhed er tilgængelig":"";
 }
 
-/* ====== Playback ====== */
+/* ===== Playback ===== */
 async function playUris(uris){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ uris }) }); await syncState(); }
 async function playContext(context_uri){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ context_uri }) }); await syncState(); }
 async function syncState(){ try{ const state=await player.getCurrentState(); if(state){ playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; } }catch{} }
 
-/* ====== UI wiring ====== */
+/* ===== UI wiring ===== */
 function initBackLink(){
-  const p=new URLSearchParams(location.search); const back=p.get("back"); $("year").textContent=new Date().getFullYear(); const el=$("backLink");
-  if(back && secureUrl(back)) el.href=back;
-  el.addEventListener("click",(e)=>{ if(!back){ e.preventDefault(); history.length>1?history.back():location.assign("/"); } });
+  const p=new URLSearchParams(location.search); const back=p.get("back");
+  $("year").textContent=new Date().getFullYear();
+  if(back && secureUrl(back)) $("backLink").href=back;
+  $("backLink").addEventListener("click",(e)=>{ if(!back){ e.preventDefault(); history.length>1?history.back():location.assign("/"); } });
 }
 
 function bindEvents(){
@@ -266,26 +265,10 @@ function bindEvents(){
   $("vol").addEventListener("input", (e)=>{ player&&player.setVolume(parseFloat(e.target.value)); });
   $("seek").addEventListener("input", async (e)=>{ if(!duration) return; const pos=Math.floor((parseInt(e.target.value,10)/100)*duration); try{ await player.seek(pos);}catch{} $("posLabel").textContent=fmt(pos); });
 
-  $("btnSearch").addEventListener("click", async ()=>{
-    const q=$("q").value.trim(); if(!q) return;
-    try{
-      const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10", market:"from_token" });
-      const data=await api(`/search?${params}`);
-      const out=[];
-      function card(line1,line2,playFn){ const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
-        el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1}</div><div class="text-xs text-gray-600 truncate">${line2}</div></div>`;
-        const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el); }
-      (data.tracks?.items||[]).forEach(t=>card(t.name,(t.artists||[]).map(a=>a.name).join(", "),()=>playUris([t.uri])));
-      (data.albums?.items||[]).forEach(a=>card(a.name,a.artists.map(x=>x.name).join(", "),()=>playContext(a.uri)));
-      (data.playlists?.items||[]).forEach(p=>card(p.name,p.owner?.display_name||"Playlist",()=>playContext(p.uri)));
-      const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
-      if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
-    }catch(e){ console.error(e); setAlert("Søgning fejlede: "+e.message, "error"); }
-  });
-
+  $("btnSearch").addEventListener("click", doSearch);
   $("btnEmbed").addEventListener("click", ()=>{
     const uri=$("embedUri").value.trim();
-    if(!uri || !window.onSpotifyIframeApiReady && !window.Spotify) { setAlert("iFrame API ikke klar eller ugyldig URI.", "error"); return; }
+    if(!uri){ setAlert("Ugyldig URI.", "error"); return; }
     $("embedHost").innerHTML=`<iframe style="border-radius:12px" src="https://open.spotify.com/embed?uri=${encodeURIComponent(uri)}" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
   });
 
@@ -295,47 +278,71 @@ function bindEvents(){
   $("cfgSave").addEventListener("click", (e)=>{ e.preventDefault(); cfgSet({ clientId:$("cfgClientId").value, redirectUri:$("cfgRedirectUri").value }); $("dlgSettings").close(); setAlert("Indstillinger gemt."); });
   $("cfgClear").addEventListener("click", ()=>{ cfgClear(); setAlert("Indstillinger nulstillet."); });
 
-  $("btnStatus").addEventListener("click", async ()=>{
-    const tok=getTokenSync(); if(!tok){ setAlert("Ingen token. Klik ‘Log ind’.", "error"); return; }
-    let me=""; try{ const m=await api("/me"); me=`${m.display_name||m.id} (${m.country||"-"})`; }catch(e){ me="fejl: "+e.message; }
-    let test=""; try{ const d=await api(`/search?${new URLSearchParams({ q:"test", type:"track", limit:"1", market:"from_token" })}`); test=`OK (${d?.tracks?.items?.length||0})`; }catch(e){ test="fejl: "+e.message; }
-    const exp=new Date((tok.expAt||0)).toLocaleTimeString();
-    setAlert(`<div class="mono">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
-  });
+  $("btnStatus").addEventListener("click", showStatus);
 }
 
-async function handleRedirect(){
+async function doSearch(){
+  const q=$("q").value.trim(); if(!q) return;
+  try{
+    // Første forsøg: UDEN market (kræver ingen ekstra scopes)
+    const params1=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
+    let data=await api(`/search?${params1}`);
+    // Hvis 0 resultater, prøv med fast market (DK) – aldrig from_token her
+    if((data?.tracks?.items?.length||0)+(data?.albums?.items?.length||0)+(data?.playlists?.items?.length||0)===0){
+      const params2=new URLSearchParams({ q, type:"track,album,playlist", limit:"10", market:"DK" });
+      data=await api(`/search?${params2}`);
+    }
+    renderResults(data);
+  }catch(e){
+    // Hvis fejlen skyldes 'Insufficient client scope' (fra evt. ældre versioner), prøv uden market igen
+    if(String(e.message).includes("Insufficient client scope")){
+      try{
+        const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
+        const data=await api(`/search?${params}`);
+        renderResults(data);
+        return;
+      }catch(_) {}
+    }
+    console.error(e);
+    setAlert("Søgning fejlede: "+e.message, "error");
+  }
+}
+
+function renderResults(data){
+  const out=[];
+  function card(line1,line2,playFn){
+    const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
+    el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1}</div><div class="text-xs text-gray-600 truncate">${line2}</div></div>`;
+    const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
+  }
+  (data.tracks?.items||[]).forEach(t=>card(t.name,(t.artists||[]).map(a=>a.name).join(", "),()=>playUris([t.uri])));
+  (data.albums?.items||[]).forEach(a=>card(a.name,a.artists.map(x=>x.name).join(", "),()=>playContext(a.uri)));
+  (data.playlists?.items||[]).forEach(p=>card(p.name,p.owner?.display_name||"Playlist",()=>playContext(p.uri)));
+  const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
+  if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
+}
+
+async function showStatus(){
+  const tok=getTokenSync(); if(!tok){ setAlert("Ingen token. Klik ‘Log ind’.", "error"); return; }
+  let me=""; try{ const m=await api("/me"); me=`${m.display_name||m.id} (${m.country||"-"})`; }catch(e){ me="fejl: "+e.message; }
+  let test=""; try{ const d=await api(`/search?${new URLSearchParams({ q:"test", type:"track", limit:"1" })}`); test=`OK (${d?.tracks?.items?.length||0})`; }catch(e){ test="fejl: "+e.message; }
+  const exp=new Date((tok.expAt||0)).toLocaleTimeString();
+  setAlert(`<div class="mono">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
+}
+
+/* ===== Boot ===== */
+document.addEventListener("DOMContentLoaded", async ()=>{
+  $("year").textContent=new Date().getFullYear();
+  initBackLink();
+  bindEvents();
+
   const p=new URLSearchParams(location.search);
   if(p.has("code")){
     try{ await exchangeToken(p.get("code")); history.replaceState({}, "", location.pathname); setAlert("Login OK. Forbind afspilleren.", "info"); }
     catch(err){ console.error(err); setAlert("Login/token-fejl. "+err.message, "error"); }
   }
-}
-
-function wireUI(){
-  $("year").textContent=new Date().getFullYear();
-  const params=new URLSearchParams(location.search);
-  const back=params.get("back");
-  if(back && secureUrl(back)) $("backLink").href=back;
-  if(getTokenSync()) $("btnConnect").classList.remove("hidden");
-  setAlert("✅ JS kører. Klar til klik.", "info"); // hvorfor: bevis at script er aktivt
-  // Premium-hint: SDK kræver Premium
-  $("premiumWarn").classList.remove("hidden");
-}
-
-async function boot(){
-  try{
-    initBackLink();
-    wireUI();
-    bindEvents();
-    await handleRedirect();
-  }catch(err){
-    console.error(err);
-    setAlert("Init-fejl: "+err.message, "error"); // hvorfor: hvis init fejler, klik virker ikke
-  }
-}
-
-document.addEventListener("DOMContentLoaded", boot);
+  if(getTokenSync()){ $("btnConnect").classList.remove("hidden"); }
+});
 </script>
 </body>
 </html>
