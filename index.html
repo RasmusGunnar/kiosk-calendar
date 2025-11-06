@@ -11,9 +11,13 @@
   <style>
     .btn{border-radius:0.75rem;border:1px solid #e5e7eb;padding:.5rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.08)}
-    .card{border:1px solid #e5e7eb;border-radius:1rem;padding:1rem;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .card{border:1px solid #e5e7eb;border-radius:1rem;padding:1rem;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden} /* hvorfor: hold iframes inde i kortet */
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
     dialog:not([open]){display:none}
+    .grid-isolated{isolation:isolate}  /* hvorfor: egen stacking context pr. grid */
+    .layer-top{position:relative;z-index:2}
+    .layer-base{position:relative;z-index:1}
+    .embed-iframe{display:block;width:100%;height:180px;border:0}
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900">
@@ -34,8 +38,9 @@
   <main class="mx-auto max-w-6xl px-4 py-6">
     <div id="alerts" class="mb-4"></div>
 
-    <section class="grid gap-4 md:grid-cols-3">
-      <div class="card md:col-span-2">
+    <!-- GRID 1: Afspiller + Enheder (isoleret stacking) -->
+    <section class="grid grid-isolated gap-4 md:grid-cols-3">
+      <div class="card md:col-span-2 layer-top">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">Afspiller</h2>
           <a href="https://open.spotify.com/" target="_blank" rel="noopener" class="text-sm underline">Åbn Spotify Web Player</a>
@@ -74,7 +79,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card layer-base">
         <h2 class="font-semibold">Enheder</h2>
         <div class="text-xs text-gray-600">Vælg aktiv enhed (Spotify Connect).</div>
         <div id="devices" class="mt-3 space-y-2"></div>
@@ -82,8 +87,9 @@
       </div>
     </section>
 
-    <section class="mt-6 grid gap-4 md:grid-cols-3">
-      <div class="card md:col-span-2">
+    <!-- GRID 2: Søg (venstre/top) + Embed (højre) -->
+    <section class="grid grid-isolated gap-4 md:grid-cols-3 mt-6">
+      <div class="card md:col-span-2 layer-top">
         <h2 class="font-semibold">Søg & afspil</h2>
         <div class="flex gap-2 mt-2">
           <input id="q" class="border rounded-xl px-3 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
@@ -92,16 +98,20 @@
         <div id="results" class="mt-3 grid gap-2"></div>
       </div>
 
-      <div class="card">
+      <div class="card layer-base">
         <h2 class="font-semibold">Embed (valgfri)</h2>
-        <div class="text-xs text-gray-600">Indsæt Spotify URI eller URL. Vi laver en korrekt embed-adresse.</div>
-        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/…">
-        <button id="btnEmbed" type="button" class="btn mt-2 w-full">Vis embed</button>
+        <div class="text-xs text-gray-600">Indsæt Spotify URI eller URL. Vi laver den korrekte embed-adresse.</div>
+        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/...">
+        <div class="flex gap-2 mt-2">
+          <button id="btnEmbed" type="button" class="btn w-full">Vis embed</button>
+          <button id="btnClearEmbed" type="button" class="btn">Skjul</button>
+        </div>
         <div id="embedHost" class="mt-3"></div>
       </div>
     </section>
   </main>
 
+  <!-- Indstillinger -->
   <dialog id="dlgSettings" class="rounded-2xl p-0 w-[36rem] max-w-[95vw]">
     <form method="dialog" class="p-4 space-y-3">
       <h3 class="text-lg font-semibold">Indstillinger</h3>
@@ -143,9 +153,8 @@ const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60)
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
 
-/* Spotify SDK global callback (fjerner konsol-fejl) */
-let sdkReady = false;
-window.onSpotifyWebPlaybackSDKReady = () => { sdkReady = true; };
+/* SDK ready flag (fjerner evt. advarsel) */
+let sdkReady=false; window.onSpotifyWebPlaybackSDKReady=()=>{ sdkReady=true; };
 
 /* ===== PKCE ===== */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
@@ -190,7 +199,7 @@ async function refreshToken(){
 function getTokenSync(){ const raw=localStorage.getItem(LS.token); return raw?JSON.parse(raw):null; }
 async function ensureToken(){ const tok=getTokenSync(); if(!tok) return null; if(Date.now()>(tok.expAt||0)){ await refreshToken(); return getTokenSync(); } return tok; }
 
-/* ===== API helper (401->refresh->retry) ===== */
+/* ===== API helper ===== */
 async function api(path, init={}, retry=true){
   const tok=await ensureToken(); if(!tok) throw new Error("Ikke logget ind");
   const headers=new Headers(init.headers||{});
@@ -273,13 +282,14 @@ function bindEvents(){
   $("seek").addEventListener("input", async (e)=>{ if(!duration) return; const pos=Math.floor((parseInt(e.target.value,10)/100)*duration); try{ await player.seek(pos);}catch{} $("posLabel").textContent=fmt(pos); });
 
   $("btnSearch").addEventListener("click", doSearch);
+
   $("btnEmbed").addEventListener("click", ()=>{
     const raw=$("embedUri").value.trim();
     const url = toEmbedUrl(raw);
     if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; }
-    $("embedHost").innerHTML=`<iframe style="border-radius:12px" src="${url}" width="100%" height="180" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+    $("embedHost").innerHTML=`<iframe class="embed-iframe" src="${url}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
   });
-
+  $("btnClearEmbed").addEventListener("click", ()=>{ $("embedHost").innerHTML=""; });
   $("openSettings").addEventListener("click", ()=>{
     const dlg=$("dlgSettings"); $("cfgClientId").value=(cfgGet().clientId||""); $("cfgRedirectUri").value=(cfgGet().redirectUri||""); dlg.showModal();
   });
@@ -305,6 +315,7 @@ function renderResults(data){
   const out=[];
   function card(line1,line2,playFn){
     const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
+    el.style.position="relative"; el.style.zIndex="2"; /* hvorfor: sikre over embed på meget smalle skærme */
     el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1||"–"}</div><div class="text-xs text-gray-600 truncate">${line2||"–"}</div></div>`;
     const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
   }
