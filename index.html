@@ -7,63 +7,41 @@
   <title>Spotify Player · GitHub Pages</title>
   <meta name="description" content="Spotify Web Playback SDK + PKCE på en statisk GitHub Pages-side.">
 
-  <!-- Tailwind (CDN til nem styling) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Spotify Web Playback SDK -->
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
 
   <style>
     :root{
-      --bg:#f6f7fb;
-      --card:#ffffff;
-      --border:#e5e7eb;
-      --text:#0f172a;
-      --radius:1.25rem;
+      --bg:#f6f7fb; --card:#ffffff; --border:#e5e7eb; --text:#0f172a; --radius:1.25rem;
     }
     html,body{height:100%}
     body{background:var(--bg); color:var(--text)}
-    /* 16:9 friendly max width + centrering */
     .container-16x9{max-width:min(1600px, calc(100vh * 1.7778)); margin-inline:auto}
-    @media (orientation:landscape) and (max-width:1200px){
-      .container-16x9{max-width:min(1200px, calc(100vh * 1.7778))}
-    }
+    @media (orientation:landscape) and (max-width:1200px){ .container-16x9{max-width:min(1200px, calc(100vh * 1.7778))} }
 
-    .btn-pill{
-      border:1px solid var(--border);
-      border-radius:9999px;
-      padding:.5rem 1rem;
-      background:#fff;
-      box-shadow:0 1px 2px rgba(0,0,0,.04);
-    }
+    .btn-pill{border:1px solid var(--border); border-radius:9999px; padding:.5rem 1rem; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .btn-pill:hover{background:#f9fafb; box-shadow:0 2px 8px rgba(0,0,0,.08)}
     .btn-cta{background:#111;color:#fff;border-color:#111}
     .btn-cta:hover{background:#000}
 
-    .card-xl{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:calc(var(--radius) * 1.4);
-      padding:1rem;
-      box-shadow:0 10px 20px rgba(2,8,20,.04);
-      overflow:hidden; /* hvorfor: iframes må ikke overlappe */
-    }
+    .card-xl{background:var(--card); border:1px solid var(--border); border-radius:calc(var(--radius) * 1.4); padding:1rem; box-shadow:0 10px 20px rgba(2,8,20,.04); overflow:hidden}
     .section-title{font-weight:600}
-    .grid-isolated{isolation:isolate} /* hvorfor: egen stacking context */
+    .grid-isolated{isolation:isolate}
     .layer-top{position:relative; z-index:2}
     .layer-base{position:relative; z-index:1}
-    .embed-iframe{display:block; width:100%; height:180px; border:0; border-radius:1rem}
+
+    /* Stor, responsiv embed */
+    .embed-box{position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:1rem; overflow:hidden}
+    .embed-box iframe{position:absolute; inset:0; width:100%; height:100%; border:0}
     dialog:not([open]){display:none}
   </style>
 </head>
 
 <body class="min-h-screen">
-  <!-- Header -->
   <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
     <div class="container-16x9 px-4 py-3 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <svg viewBox="0 0 24 24" class="w-7 h-7" aria-hidden="true">
-          <path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9Zm4.5 12.3a.9.9 0 0 1-1.23.3c-3.37-2.06-7.61-2.53-12.6-1.38a.9.9 0 0 1-.39-1.76c5.43-1.22 10.12-.7 13.85 1.56.43.26.57.82.37 1.28Zm.87-3.04a1 1 0 0 1-1.36.33c-3.78-2.33-9.54-3.01-14-1.64a1 1 0 0 1-.58-1.92c4.92-1.5 11.25-.75 15.45 1.84.48.3.62.94.35 1.39Zm.2-3.15c-4.52-2.68-12.03-2.92-16.35-1.58a1.1 1.1 0 0 1-.63-2.11C6.3 4.65 14.4 4.93 19.4 7.85a1.1 1.1 0 0 1-1.16 1.89Z"></path>
-        </svg>
+        <svg viewBox="0 0 24 24" class="w-7 h-7" aria-hidden="true"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9Zm4.5 12.3a.9.9 0 0 1-1.23.3c-3.37-2.06-7.61-2.53-12.6-1.38a.9.9 0 0 1-.39-1.76c5.43-1.22 10.12-.7 13.85 1.56.43.26.57.82.37 1.28Zm.87-3.04a1 1 0 0 1-1.36.33c-3.78-2.33-9.54-3.01-14-1.64a1 1 0 0 1-.58-1.92c4.92-1.5 11.25-.75 15.45 1.84.48.3.62.94.35 1.39Zm.2-3.15c-4.52-2.68-12.03-2.92-16.35-1.58a1.1 1.1 0 0 1-.63-2.11C6.3 4.65 14.4 4.93 19.4 7.85a1.1 1.1 0 0 1-1.16 1.89Z"></path></svg>
         <h1 class="text-lg font-semibold">Spotify på GitHub Pages</h1>
       </div>
       <div class="flex items-center gap-2">
@@ -74,11 +52,10 @@
     </div>
   </header>
 
-  <!-- Indhold -->
   <main class="container-16x9 px-4 py-6">
     <div id="alerts" class="mb-4"></div>
 
-    <!-- Sektion 1: Afspiller + Enheder -->
+    <!-- Sektion 1 -->
     <section class="grid grid-isolated gap-4 lg:grid-cols-3">
       <div class="card-xl lg:col-span-2 layer-top">
         <div class="flex items-center justify-between">
@@ -127,9 +104,9 @@
       </div>
     </section>
 
-    <!-- Sektion 2: Søg + Embed -->
+    <!-- Sektion 2: Søg (1 kol venstre) + Stor Embed (2 kol højre) -->
     <section class="grid grid-isolated gap-4 lg:grid-cols-3 mt-6">
-      <div class="card-xl lg:col-span-2 layer-top">
+      <div class="card-xl lg:col-span-1 layer-top">
         <h2 class="section-title">Søg & afspil</h2>
         <div class="flex gap-2 mt-2">
           <input id="q" class="border rounded-full px-4 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
@@ -138,15 +115,23 @@
         <div id="results" class="mt-3 grid gap-2"></div>
       </div>
 
-      <div class="card-xl layer-base">
-        <h2 class="section-title">Embed (valgfri)</h2>
-        <div class="text-xs text-gray-600">Indsæt Spotify URI/URL. Vi laver den korrekte embed-adresse.</div>
-        <input id="embedUri" class="border rounded-full px-4 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/...">
-        <div class="flex gap-2 mt-2">
+      <div class="card-xl lg:col-span-2 layer-base">
+        <div class="flex items-center justify-between">
+          <h2 class="section-title">Embed (valgfri) – stor visning</h2>
+          <div class="text-xs text-gray-600">16:9 · responsiv · maksimerbar</div>
+        </div>
+
+        <input id="embedUri" class="border rounded-full px-4 py-2 mt-3 w-full" placeholder="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/...">
+        <div class="flex gap-2 mt-3">
           <button id="btnEmbed" type="button" class="btn-pill w-full">Vis embed</button>
+          <button id="btnMaxEmbed" type="button" class="btn-pill">Maksimér</button>
           <button id="btnClearEmbed" type="button" class="btn-pill">Skjul</button>
         </div>
-        <div id="embedHost" class="mt-3"></div>
+
+        <!-- Stor 16:9 boks -->
+        <div id="embedHost" class="mt-4">
+          <!-- fyldes dynamisk med .embed-box > iframe -->
+        </div>
       </div>
     </section>
   </main>
@@ -169,23 +154,30 @@
     </form>
   </dialog>
 
+  <!-- Maksimeret embed-dialog -->
+  <dialog id="dlgEmbed" class="rounded-2xl p-0 w-[96vw] max-w-[1400px]">
+    <div class="p-3 flex items-center justify-between border-b">
+      <div class="font-semibold">Stor embed</div>
+      <button id="dlgEmbedClose" class="btn-pill">Luk</button>
+    </div>
+    <div class="p-3">
+      <div class="embed-box">
+        <iframe id="dlgEmbedFrame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+      </div>
+    </div>
+  </dialog>
+
   <footer class="container-16x9 px-4 pb-10 pt-6 text-xs text-gray-500">
     © <span id="year"></span> • Bygget med Spotify Web Playback SDK + PKCE. Ikke tilknyttet Spotify.
   </footer>
 
 <script>
-/* ---------- Konstanter/Utils ---------- */
+/* --- Konstanter/Utils --- */
 const S = {
-  scopes: [
-    "streaming",
-    "user-read-playback-state",
-    "user-modify-playback-state",
-    "user-read-currently-playing",
-    "playlist-read-private"
-  ],
-  authz: "https://accounts.spotify.com/authorize",
-  token: "https://accounts.spotify.com/api/token",
-  api: "https://api.spotify.com/v1",
+  scopes: ["streaming","user-read-playback-state","user-modify-playback-state","user-read-currently-playing","playlist-read-private"],
+  authz:"https://accounts.spotify.com/authorize",
+  token:"https://accounts.spotify.com/api/token",
+  api:"https://api.spotify.com/v1",
 };
 const LS = { clientId:"sp_client_id", redirectUri:"sp_redirect_uri", codeVerifier:"sp_code_verifier", token:"sp_token" };
 const $ = (id) => document.getElementById(id);
@@ -193,10 +185,10 @@ const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60)
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
 
-/* SDK ready flag (undertrykker SDK-warning) */
+/* SDK ready */
 let sdkReady=false; window.onSpotifyWebPlaybackSDKReady=()=>{ sdkReady=true; };
 
-/* ---------- PKCE ---------- */
+/* --- PKCE --- */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
 function randomString(len=64){ const a=new Uint8Array(len); crypto.getRandomValues(a); const abc="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"; return Array.from(a).map(n=>abc[n%abc.length]).join(""); }
 async function sha256(input){ const enc=new TextEncoder().encode(input); const hash=await crypto.subtle.digest("SHA-256",enc); return base64url(hash); }
@@ -213,18 +205,15 @@ async function startLogin(){
   const params=new URLSearchParams({ response_type:"code", client_id:clientId, redirect_uri:redirectUri, code_challenge_method:"S256", code_challenge:challenge, scope:S.scopes.join(" ") });
   location.href=`${S.authz}?${params.toString()}`;
 }
-
 async function exchangeToken(authCode){
   const {clientId,redirectUri}=cfgGet();
   const code_verifier=localStorage.getItem(LS.codeVerifier);
   const body=new URLSearchParams({ grant_type:"authorization_code", code:authCode, redirect_uri:redirectUri, client_id:clientId, code_verifier });
   const r=await fetch(S.token,{ method:"POST", headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body });
   if(!r.ok) throw new Error("Token exchange fejlede ("+r.status+")");
-  const tok=await r.json();
-  const expAt=Date.now()+(tok.expires_in*1000)-60000;
+  const tok=await r.json(); const expAt=Date.now()+(tok.expires_in*1000)-60000;
   localStorage.setItem(LS.token, JSON.stringify({...tok, expAt}));
 }
-
 async function refreshToken(){
   const raw=localStorage.getItem(LS.token); if(!raw) return;
   const tok=JSON.parse(raw); if(!tok.refresh_token) return;
@@ -235,11 +224,10 @@ async function refreshToken(){
   const nt=await r.json(); const expAt=Date.now()+(nt.expires_in*1000)-60000;
   localStorage.setItem(LS.token, JSON.stringify({ ...tok, ...nt, expAt }));
 }
-
 function getTokenSync(){ const raw=localStorage.getItem(LS.token); return raw?JSON.parse(raw):null; }
 async function ensureToken(){ const tok=getTokenSync(); if(!tok) return null; if(Date.now()>(tok.expAt||0)){ await refreshToken(); return getTokenSync(); } return tok; }
 
-/* ---------- API helper ---------- */
+/* --- API helper --- */
 async function api(path, init={}, retry=true){
   const tok=await ensureToken(); if(!tok) throw new Error("Ikke logget ind");
   const headers=new Headers(init.headers||{});
@@ -252,7 +240,7 @@ async function api(path, init={}, retry=true){
   return res.json();
 }
 
-/* ---------- Player / UI ---------- */
+/* --- Player/UI --- */
 let player=null, deviceId=null, playing=false, duration=0, position=0, positionTimer=null;
 const arr = (x)=> Array.isArray(x) ? x.filter(Boolean) : [];
 const artistNames = (x)=> arr(x?.artists).map(a=>a?.name).filter(Boolean).join(", ") || "–";
@@ -274,7 +262,6 @@ function startPositionTimer(){
   if(positionTimer) clearInterval(positionTimer);
   positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000);
 }
-
 async function loadDevices(){
   const data=await api("/me/player/devices");
   const box=$("devices"); box.innerHTML="";
@@ -288,19 +275,17 @@ async function loadDevices(){
   });
   $("npDevice").textContent=deviceId?"Browser-enhed er tilgængelig":"";
 }
-
 async function playUris(uris){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ uris }) }); await syncState(); }
 async function playContext(context_uri){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ context_uri }) }); await syncState(); }
 async function syncState(){ try{ const st=await player.getCurrentState(); if(st){ playing=!st.paused; updateNowPlayingUI(st); $("btnPlayPause").textContent=st.paused?"▶️":"⏸"; } }catch{} }
 
-/* ---------- Navigation/Bindings ---------- */
+/* --- Navigation/Bindings --- */
 function initBackLink(){
   const p=new URLSearchParams(location.search); const back=p.get("back");
   $("year").textContent=new Date().getFullYear();
   if(back && secureUrl(back)) $("backLink").href=back;
   $("backLink").addEventListener("click",(e)=>{ if(!back){ e.preventDefault(); history.length>1?history.back():location.assign("/"); } });
 }
-
 function bindEvents(){
   $("btnLogin").addEventListener("click", startLogin);
 
@@ -331,7 +316,21 @@ function bindEvents(){
   $("seek").addEventListener("input", async (e)=>{ if(!duration) return; const pos=Math.floor((parseInt(e.target.value,10)/100)*duration); try{ await player.seek(pos);}catch{} $("posLabel").textContent=fmt(pos); });
 
   $("btnSearch").addEventListener("click", doSearch);
-  $("btnEmbed").addEventListener("click", ()=>{ const raw=$("embedUri").value.trim(); const url=toEmbedUrl(raw); if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; } $("embedHost").innerHTML=`<iframe class="embed-iframe" src="${url}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`; });
+
+  $("btnEmbed").addEventListener("click", ()=>{
+    const raw=$("embedUri").value.trim();
+    const url=toEmbedUrl(raw);
+    if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; }
+    $("embedHost").innerHTML=`<div class="embed-box"><iframe src="${url}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe></div>`;
+    // Opdater dialogens iframe også, hvis den er åben
+    const dlgFrame=$("dlgEmbedFrame"); if(dlgFrame) dlgFrame.src=url;
+  });
+  $("btnMaxEmbed").addEventListener("click", ()=>{
+    const raw=$("embedUri").value.trim(); const url=toEmbedUrl(raw);
+    if(!url){ setAlert("Vis først et gyldigt embed.", "error"); return; }
+    $("dlgEmbedFrame").src=url; $("dlgEmbed").showModal();
+  });
+  $("dlgEmbedClose").addEventListener("click", ()=>$("dlgEmbed").close());
   $("btnClearEmbed").addEventListener("click", ()=>{ $("embedHost").innerHTML=""; });
 
   $("openSettings").addEventListener("click", ()=>{ const dlg=$("dlgSettings"); $("cfgClientId").value=(cfgGet().clientId||""); $("cfgRedirectUri").value=(cfgGet().redirectUri||""); dlg.showModal(); });
@@ -341,50 +340,40 @@ function bindEvents(){
   $("btnStatus").addEventListener("click", showStatus);
 }
 
-/* ---------- Search/Embed helpers ---------- */
+/* --- Søg/Embed helpers --- */
 async function doSearch(){
   const q=$("q").value.trim(); if(!q) return;
   try{
     const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
-    const data=await api(`/search?${params}`);
-    renderResults(data);
+    const data=await api(`/search?${params}`); renderResults(data);
   }catch(e){ console.error(e); setAlert("Søgning fejlede: "+e.message, "error"); }
 }
-
 function renderResults(data){
-  const out=[];
+  const out=[], host=$("results"); host.innerHTML="";
   function card(line1,line2,playFn){
     const el=document.createElement("div");
     el.className="border rounded-2xl p-3 flex items-center justify-between gap-3 bg-white";
-    el.style.position="relative"; el.style.zIndex="2"; /* hvorfor: sikre klik over embed på smalle skærme */
+    el.style.position="relative"; el.style.zIndex="2";
     el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1||"–"}</div><div class="text-xs text-gray-600 truncate">${line2||"–"}</div></div>`;
     const b=document.createElement("button"); b.type="button"; b.className="btn-pill"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
   }
+  const arr = (x)=> Array.isArray(x) ? x.filter(Boolean) : [];
+  const artistNames = (x)=> arr(x?.artists).map(a=>a?.name).filter(Boolean).join(", ") || "–";
+  const ownerName = (p)=> p?.owner?.display_name || p?.owner?.id || "Playlist";
   arr(data?.tracks?.items).forEach(t => card(t?.name, artistNames(t), ()=>playUris([t?.uri].filter(Boolean))));
   arr(data?.albums?.items).forEach(a => card(a?.name, artistNames(a), ()=>playContext(a?.uri)));
   arr(data?.playlists?.items).forEach(p => card(p?.name, ownerName(p), ()=>playContext(p?.uri)));
-  const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
-  if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
+  out.forEach(x=>host.appendChild(x)); if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
 }
-
 function toEmbedUrl(input){
   if(!input) return null;
   try{
-    if(input.startsWith("spotify:")){
-      const [,type,id] = input.split(":");
-      if(!type||!id) return null;
-      return `https://open.spotify.com/embed/${type}/${id}`;
-    }
-    if(input.startsWith("http")){
-      const u=new URL(input); if(u.hostname!=="open.spotify.com") return null;
-      const [type,id]=u.pathname.replace(/^\/+|\/+$/g,"").split("/");
-      if(!type||!id) return null;
-      return `https://open.spotify.com/embed/${type}/${id}`;
-    }
+    if(input.startsWith("spotify:")){ const [,type,id]=input.split(":"); if(!type||!id) return null; return `https://open.spotify.com/embed/${type}/${id}`; }
+    if(input.startsWith("http")){ const u=new URL(input); if(u.hostname!=="open.spotify.com") return null;
+      const [type,id]=u.pathname.replace(/^\/+|\/+$/g,"").split("/"); if(!type||!id) return null; return `https://open.spotify.com/embed/${type}/${id}`; }
   }catch{ return null; }
   return null;
 }
-
 async function showStatus(){
   const tok=getTokenSync(); if(!tok){ setAlert("Ingen token. Klik ‘Log ind’.", "error"); return; }
   let me=""; try{ const m=await api("/me"); me=`${m.display_name||m.id} (${m.country||"-"})`; }catch(e){ me="fejl: "+e.message; }
@@ -393,7 +382,7 @@ async function showStatus(){
   setAlert(`<div class="font-mono text-sm">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
 }
 
-/* ---------- Boot ---------- */
+/* --- Boot --- */
 document.addEventListener("DOMContentLoaded", async ()=>{
   initBackLink(); bindEvents(); $("year").textContent=new Date().getFullYear();
   const p=new URLSearchParams(location.search);
