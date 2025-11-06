@@ -1,9 +1,0 @@
-{
-  "name": "Spotify Kiosk Wrapper",
-  "short_name": "Spotify",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#0f1116",
-  "theme_color": "#1db954",
-  "lang": "da"
-}
