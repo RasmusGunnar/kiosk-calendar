@@ -3,34 +3,49 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Spotify Kiosk Wrapper</title>
+    <title>Spotify Wrapper Kiosk</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <meta name="theme-color" content="#1db954" />
   </head>
   <body>
     <main class="app">
-      <section class="card">
+      <section class="card" aria-labelledby="title">
         <header>
-          <h1>Åbn Spotify</h1>
+          <h1 id="title">Indlejret Spotify-afspiller</h1>
           <p>
-            Denne kiosk-app forsøger først at starte den installerede Spotify-app.
-            Hvis det ikke lykkes, åbnes Spotify i browseren.
+            Denne PWA viser Spotify’s indlejrede webafspiller direkte i dit kiosk-miljø.
+            Indsæt et Spotify-link eller en URI, så omskriver vi det til en tilladt
+            <em>embed</em>-adresse, som kan afspilles uden at brugeren forlader appen.
           </p>
-
         </header>
-        <div class="actions">
-          <button id="open-spotify" class="primary">Start Spotify</button>
-          <a
-            id="open-web"
-            class="secondary"
-            href="https://open.spotify.com/"
-            rel="noopener noreferrer"
-            target="_blank"
-          >Åbn webafspiller</a>
-
-        </div>
-        <p class="hint" id="hint"></p>
+        <form id="link-form" class="link-form" novalidate>
+          <label class="field" for="spotify-url">
+            <span>Spotify-link eller URI</span>
+            <input
+              id="spotify-url"
+              type="url"
+              inputmode="url"
+              placeholder="f.eks. https://open.spotify.com/playlist/..."
+              autocomplete="off"
+            />
+          </label>
+          <div class="actions">
+            <button type="submit" class="primary">Indlæs i afspilleren</button>
+            <button type="button" id="reset" class="secondary">Gendan standardvisning</button>
+          </div>
+        </form>
+        <p class="hint" id="hint">
+          Vi starter med Spotifys officielle "Today’s Top Hits"-playlist. Log ind i rammen for at bruge din konto.
+        </p>
+      </section>
+      <section class="player" aria-label="Spotify-afspiller">
+        <iframe
+          id="player-frame"
+          title="Spotify indlejret afspiller"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          loading="lazy"
+        ></iframe>
       </section>
     </main>
     <script src="app.js" type="module"></script>
