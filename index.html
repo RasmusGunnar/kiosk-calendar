@@ -1,0 +1,478 @@
+<!-- /index.html -->
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spotify Player · GitHub Pages</title>
+  <meta name="description" content="Spotify Web Playback SDK + PKCE på en statisk GitHub Pages-side.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Spotify Web Playback SDK -->
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <!-- Spotify Embed iFrame API (valgfri) -->
+  <script async src="https://open.spotify.com/embed/iframe-api/v1" onload="window._spotifyIframeApiLoaded=true"></script>
+  <style>
+    .btn { @apply rounded-xl border shadow-sm px-4 py-2 hover:shadow; }
+    .card { @apply rounded-2xl border p-4 shadow-sm bg-white; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <header class="sticky top-0 z-10 bg-white border-b">
+    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <svg viewBox="0 0 24 24" class="w-7 h-7" aria-hidden="true"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9Zm4.5 12.3a.9.9 0 0 1-1.23.3c-3.37-2.06-7.61-2.53-12.6-1.38a.9.9 0 0 1-.39-1.76c5.43-1.22 10.12-.7 13.85 1.56.43.26.57.82.37 1.28Zm.87-3.04a1 1 0 0 1-1.36.33c-3.78-2.33-9.54-3.01-14-1.64a1 1 0 0 1-.58-1.92c4.92-1.5 11.25-.75 15.45 1.84.48.3.62.94.35 1.39Zm.2-3.15c-4.52-2.68-12.03-2.92-16.35-1.58a1.1 1.1 0 0 1-.63-2.11C6.3 4.65 14.4 4.93 19.4 7.85a1.1 1.1 0 0 1-1.16 1.89Z"></path></svg>
+        <h1 class="text-lg font-semibold">Spotify på GitHub Pages</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="openSettings" class="btn text-sm">Indstillinger</button>
+        <a id="backLink" href="#" class="btn text-sm" title="Tilbage">Tilbage</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 py-6">
+    <div id="alerts" class="mb-4"></div>
+
+    <section class="grid gap-4 md:grid-cols-3">
+      <div class="card md:col-span-2">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">Afspiller</h2>
+          <a href="https://open.spotify.com/" target="_blank" rel="noopener" class="text-sm underline">Åbn Spotify Web Player</a>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button id="btnLogin" class="btn">Log ind med Spotify</button>
+          <button id="btnConnect" class="btn hidden">Forbind afspiller</button>
+          <span id="premiumWarn" class="text-xs text-amber-700 hidden">Premium påkrævet for afspilning i browser.</span>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <button id="btnPrev" class="btn" title="Forrige">⏮</button>
+            <button id="btnPlayPause" class="btn" title="Afspil/Pause">⏯</button>
+            <button id="btnNext" class="btn" title="Næste">⏭</button>
+            <label class="ml-4 text-sm">Lyd:
+              <input id="vol" type="range" min="0" max="1" step="0.01" class="align-middle ml-2">
+            </label>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span id="posLabel" class="text-xs w-16">0:00</span>
+            <input id="seek" type="range" min="0" max="100" value="0" class="flex-1">
+            <span id="durLabel" class="text-xs w-16 text-right">0:00</span>
+          </div>
+
+          <div id="nowPlaying" class="flex items-center gap-3">
+            <img id="npCover" src="" alt="" class="w-16 h-16 rounded-lg object-cover border hidden">
+            <div class="min-w-0">
+              <div id="npTitle" class="font-medium truncate">–</div>
+              <div id="npSub" class="text-sm text-gray-600 truncate">–</div>
+              <div id="npDevice" class="text-xs text-gray-500 truncate"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="font-semibold">Enheder</h2>
+        <div class="text-xs text-gray-600">Vælg aktiv enhed (Spotify Connect).</div>
+        <div id="devices" class="mt-3 space-y-2"></div>
+        <button id="btnMakeThisDevice" class="btn mt-3 w-full">Afspil her i browseren</button>
+      </div>
+    </section>
+
+    <section class="mt-6 grid gap-4 md:grid-cols-3">
+      <div class="card md:col-span-2">
+        <h2 class="font-semibold">Søg & afspil</h2>
+        <div class="flex gap-2 mt-2">
+          <input id="q" class="border rounded-xl px-3 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
+          <button id="btnSearch" class="btn">Søg</button>
+        </div>
+        <div id="results" class="mt-3 grid gap-2"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="font-semibold">Embed (valgfri)</h2>
+        <div class="text-xs text-gray-600">Vis en specifik Spotify URI med Spotify Embed (ikke hele web playeren).</div>
+        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M">
+        <button id="btnEmbed" class="btn mt-2 w-full">Vis embed</button>
+        <div id="embedHost" class="mt-3"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Indstillinger modal -->
+  <dialog id="dlgSettings" class="rounded-2xl p-0 w-[36rem] max-w-[95vw]">
+    <form method="dialog" class="p-4 space-y-3">
+      <h3 class="text-lg font-semibold">Indstillinger</h3>
+      <label class="block">Spotify Client ID
+        <input id="cfgClientId" class="border rounded-xl px-3 py-2 w-full" placeholder="din client id">
+      </label>
+      <label class="block">Redirect URI (denne sides URL)
+        <input id="cfgRedirectUri" class="border rounded-xl px-3 py-2 w-full" placeholder="https://<user>.github.io/<repo>/">
+      </label>
+      <div class="text-xs text-gray-600">Scopes: streaming, user-read-playback-state, user-modify-playback-state, user-read-currently-playing, playlist-read-private.</div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="cfgClear" type="button" class="btn">Nulstil</button>
+        <button id="cfgSave" class="btn bg-gray-900 text-white">Gem</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="mx-auto max-w-6xl px-4 pb-10 pt-6 text-xs text-gray-500">
+    © <span id="year"></span> • Bygget med Spotify Web Playback SDK + PKCE. Ikke tilknyttet Spotify.
+  </footer>
+
+<script>
+/* --- Utils (hvorfor: PKCE & token-håndtering kræver crypto og base64url) --- */
+const S = {
+  scopes: [
+    "streaming",
+    "user-read-playback-state",
+    "user-modify-playback-state",
+    "user-read-currently-playing",
+    "playlist-read-private"
+  ],
+  authz: "https://accounts.spotify.com/authorize",
+  token: "https://accounts.spotify.com/api/token",
+  api: "https://api.spotify.com/v1",
+};
+const LS = {
+  clientId: "sp_client_id",
+  redirectUri: "sp_redirect_uri",
+  codeVerifier: "sp_code_verifier",
+  token: "sp_token",
+};
+const $ = (id) => document.getElementById(id);
+const fmt = (ms) => {
+  const t = Math.max(0, Math.floor(ms/1000)), m = Math.floor(t/60), s = t%60;
+  return `${m}:${s.toString().padStart(2,"0")}`;
+};
+function setAlert(html, type="info") {
+  const c = document.createElement("div");
+  c.className = "rounded-xl border p-3 text-sm " + (type==="error" ? "border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50");
+  c.innerHTML = html;
+  $("alerts").innerHTML = "";
+  $("alerts").appendChild(c);
+}
+function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
+
+/* --- PKCE helpers --- */
+function base64url(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function randomString(len=64) {
+  const a = new Uint8Array(len);
+  crypto.getRandomValues(a);
+  return Array.from(a).map(n => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"[n%66]).join("");
+}
+async function sha256(input) {
+  const enc = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", enc);
+  return base64url(hash);
+}
+
+/* --- Config storage --- */
+function cfgGet() {
+  return {
+    clientId: localStorage.getItem(LS.clientId) || "",
+    redirectUri: localStorage.getItem(LS.redirectUri) || location.origin + location.pathname,
+  };
+}
+function cfgSet({clientId, redirectUri}) {
+  if (clientId) localStorage.setItem(LS.clientId, clientId.trim());
+  if (redirectUri) localStorage.setItem(LS.redirectUri, redirectUri.trim());
+}
+function cfgClear() {
+  localStorage.removeItem(LS.clientId);
+  localStorage.removeItem(LS.redirectUri);
+  localStorage.removeItem(LS.token);
+  localStorage.removeItem(LS.codeVerifier);
+}
+
+/* --- OAuth (PKCE) --- */
+async function startLogin() {
+  const {clientId, redirectUri} = cfgGet();
+  if (!clientId || !redirectUri || !secureUrl(redirectUri)) {
+    setAlert("Udfyld Client ID og en gyldig HTTPS Redirect URI i Indstillinger.", "error");
+    $("openSettings").click();
+    return;
+  }
+  const verifier = randomString(64);
+  localStorage.setItem(LS.codeVerifier, verifier);
+  const challenge = await sha256(verifier);
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    code_challenge_method: "S256",
+    code_challenge: challenge,
+    scope: S.scopes.join(" ")
+  });
+  location.href = `${S.authz}?${params.toString()}`;
+}
+async function exchangeToken(authCode) {
+  const {clientId, redirectUri} = cfgGet();
+  const code_verifier = localStorage.getItem(LS.codeVerifier);
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code: authCode,
+    redirect_uri: redirectUri,
+    client_id: clientId,
+    code_verifier
+  });
+  const r = await fetch(S.token, { method:"POST", headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body });
+  if (!r.ok) throw new Error("Token exchange fejlede");
+  const tok = await r.json();
+  const expAt = Date.now() + (tok.expires_in*1000) - 60000;
+  localStorage.setItem(LS.token, JSON.stringify({...tok, expAt}));
+}
+async function refreshToken() {
+  const raw = localStorage.getItem(LS.token);
+  if (!raw) return;
+  const tok = JSON.parse(raw);
+  if (!tok.refresh_token) return;
+  const {clientId} = cfgGet();
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: tok.refresh_token,
+    client_id: clientId
+  });
+  const r = await fetch(S.token, { method:"POST", headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body });
+  if (!r.ok) return;
+  const nt = await r.json();
+  const expAt = Date.now() + (nt.expires_in*1000) - 60000;
+  localStorage.setItem(LS.token, JSON.stringify({ ...tok, ...nt, expAt }));
+}
+function getTokenSync() {
+  const raw = localStorage.getItem(LS.token);
+  if (!raw) return null;
+  const tok = JSON.parse(raw);
+  return tok;
+}
+async function ensureToken() {
+  const tok = getTokenSync();
+  if (!tok) return null;
+  if (Date.now() > (tok.expAt||0)) { await refreshToken(); return getTokenSync(); }
+  return tok;
+}
+
+/* --- Web API helper --- */
+async function api(path, init={}) {
+  const tok = await ensureToken();
+  if (!tok) throw new Error("Ikke logget ind");
+  const r = await fetch(S.api + path, {
+    ...init,
+    headers: {
+      "Authorization": `Bearer ${tok.access_token}`,
+      "Content-Type": init.body ? "application/json" : undefined
+    }
+  });
+  if (r.status === 204) return null;
+  if (!r.ok) throw new Error("API-fejl: " + r.status);
+  return r.json();
+}
+
+/* --- Player state --- */
+let sdkReady = false, player = null, deviceId = null, playing = false, duration = 0, position = 0, positionTimer = null;
+
+function updateNowPlayingUI(state) {
+  const track = state?.track_window?.current_track;
+  duration = state?.duration || 0;
+  position = state?.position || 0;
+  $("seek").value = duration ? Math.floor((position/duration)*100) : 0;
+  $("posLabel").textContent = fmt(position);
+  $("durLabel").textContent = fmt(duration);
+  if (track) {
+    const img = track.album.images?.[0]?.url || "";
+    if (img) { $("npCover").src = img; $("npCover").classList.remove("hidden"); }
+    $("npTitle").textContent = track.name || "–";
+    $("npSub").textContent = (track.artists||[]).map(a=>a.name).join(", ") || "–";
+  }
+}
+
+function startPositionTimer() {
+  if (positionTimer) clearInterval(positionTimer);
+  positionTimer = setInterval(() => {
+    if (playing && duration>0) {
+      position = Math.min(duration, position + 1000);
+      $("seek").value = Math.floor((position/duration)*100);
+      $("posLabel").textContent = fmt(position);
+    }
+  }, 1000);
+}
+
+/* --- Devices --- */
+async function loadDevices() {
+  const data = await api("/me/player/devices");
+  const box = $("devices");
+  box.innerHTML = "";
+  (data?.devices||[]).forEach(d => {
+    const btn = document.createElement("button");
+    btn.className = "btn w-full text-left " + (d.is_active ? "bg-gray-900 text-white":"");
+    btn.innerHTML = `<div class="font-medium">${d.name}</div><div class="text-xs text-gray-600">${d.type}${d.is_active?" • aktiv":""}</div>`;
+    btn.onclick = async () => {
+      await api("/me/player", { method:"PUT", body: JSON.stringify({ device_ids: [d.id], play: true }) });
+      setAlert(`Overført afspilning til <strong>${d.name}</strong>.`);
+      await syncState();
+    };
+    box.appendChild(btn);
+  });
+  $("npDevice").textContent = deviceId ? "Browser-enhed er tilgængelig" : "";
+}
+
+/* --- Playback controls --- */
+async function playUris(uris) {
+  await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, { method:"PUT", body: JSON.stringify({ uris }) });
+  await syncState();
+}
+async function playContext(context_uri) {
+  await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, { method:"PUT", body: JSON.stringify({ context_uri }) });
+  await syncState();
+}
+async function syncState() {
+  try {
+    const state = await player.getCurrentState();
+    if (state) {
+      playing = !state.paused;
+      updateNowPlayingUI(state);
+      $("btnPlayPause").textContent = state.paused ? "▶️" : "⏸";
+    }
+  } catch {}
+}
+
+/* --- UI wiring --- */
+function initBackLink() {
+  const params = new URLSearchParams(location.search);
+  const back = params.get("back");
+  $("year").textContent = new Date().getFullYear();
+  const backEl = $("backLink");
+  if (back && secureUrl(back)) backEl.href = back;
+  backEl.addEventListener("click", (e) => {
+    if (!back) { e.preventDefault(); history.length>1 ? history.back() : location.assign("/"); }
+  });
+}
+function showPremiumWarning(show) { $("premiumWarn").classList.toggle("hidden", !show); }
+
+/* --- Settings dialog --- */
+(function setupSettings(){
+  const dlg = $("dlgSettings");
+  $("openSettings").onclick = () => {
+    const cfg = cfgGet();
+    $("cfgClientId").value = cfg.clientId;
+    $("cfgRedirectUri").value = cfg.redirectUri;
+    dlg.showModal();
+  };
+  $("cfgSave").onclick = (e) => {
+    e.preventDefault();
+    cfgSet({ clientId: $("cfgClientId").value, redirectUri: $("cfgRedirectUri").value });
+    dlg.close();
+    setAlert("Indstillinger gemt.");
+  };
+  $("cfgClear").onclick = () => { cfgClear(); setAlert("Indstillinger nulstillet."); };
+})();
+
+/* --- Embed (iFrame API) --- */
+let IFrameAPI = null, embedCtrl = null;
+window.onSpotifyIframeApiReady = (I) => { IFrameAPI = I; };
+$("btnEmbed").onclick = () => {
+  const uri = $("embedUri").value.trim();
+  if (!uri || !IFrameAPI) { setAlert("Ugyldig URI eller iFrame API ikke klar.", "error"); return; }
+  $("embedHost").innerHTML = `<div id="embedTarget"></div>`;
+  IFrameAPI.createController($("embedTarget"), { uri }, c => { embedCtrl = c; });
+};
+
+/* --- Main init --- */
+initBackLink();
+
+$("btnLogin").onclick = startLogin;
+
+$("btnConnect").onclick = async () => {
+  if (!window.Spotify) { setAlert("Spotify SDK ikke klar endnu.", "error"); return; }
+  if (player) player.disconnect();
+
+  player = new Spotify.Player({
+    name: "GitHub Pages Player",
+    getOAuthToken: async cb => {
+      const tok = await ensureToken();
+      if (!tok) return setAlert("Log ind først.", "error");
+      cb(tok.access_token);
+    },
+    volume: 0.7
+  });
+
+  player.addListener("ready", ({ device_id }) => {
+    deviceId = device_id;
+    setAlert("Browser-enhed klar. Vælg ‘Afspil her i browseren’ eller start et nummer.", "info");
+    loadDevices();
+  });
+  player.addListener("not_ready", () => { deviceId = null; });
+  player.addListener("player_state_changed", (state) => {
+    if (!state) return;
+    playing = !state.paused;
+    updateNowPlayingUI(state);
+    $("btnPlayPause").textContent = state.paused ? "▶️" : "⏸";
+    startPositionTimer();
+  });
+  player.connect();
+};
+
+$("btnMakeThisDevice").onclick = async () => {
+  if (!deviceId) { setAlert("Forbind afspilleren først.", "error"); return; }
+  await api("/me/player", { method:"PUT", body: JSON.stringify({ device_ids: [deviceId], play: true }) });
+  await syncState();
+  setAlert("Afspilning overført til denne browser-enhed.");
+};
+
+$("btnPlayPause").onclick = async () => { player && player.togglePlay(); };
+$("btnNext").onclick = async () => { player && player.nextTrack(); };
+$("btnPrev").onclick = async () => { player && player.previousTrack(); };
+$("vol").oninput = (e) => { player && player.setVolume(parseFloat(e.target.value)); };
+$("seek").oninput = async (e) => {
+  if (!duration) return;
+  const pos = Math.floor((parseInt(e.target.value,10)/100)*duration);
+  try { await player.seek(pos); } catch {}
+  $("posLabel").textContent = fmt(pos);
+};
+
+$("btnSearch").onclick = async () => {
+  const q = $("q").value.trim();
+  if (!q) return;
+  try {
+    const data = await api(`/search?${new URLSearchParams({ q, type: "track,album,playlist", limit: "10" })}`);
+    const out = [];
+    function card(line1, line2, playFn) {
+      const el = document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
+      el.innerHTML = `<div class="min-w-0"><div class="font-medium truncate">${line1}</div><div class="text-xs text-gray-600 truncate">${line2}</div></div>`;
+      const b = document.createElement("button"); b.className = "btn"; b.textContent = "Afspil her"; b.onclick = playFn; el.appendChild(b); out.push(el);
+    }
+    (data.tracks?.items||[]).forEach(t => card(t.name, (t.artists||[]).map(a=>a.name).join(", "), ()=>playUris([t.uri])));
+    (data.albums?.items||[]).forEach(a => card(a.name, a.artists.map(x=>x.name).join(", "), ()=>playContext(a.uri)));
+    (data.playlists?.items||[]).forEach(p => card(p.name, p.owner?.display_name||"Playlist", ()=>playContext(p.uri)));
+    const host = $("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
+  } catch (e) {
+    setAlert("Søgning fejlede. Tjek tokens/scopes.", "error");
+  }
+};
+
+/* --- On load: handle redirect code & UI state --- */
+(async function boot() {
+  $("year").textContent = new Date().getFullYear();
+  const p = new URLSearchParams(location.search);
+  if (p.has("code")) {
+    try {
+      await exchangeToken(p.get("code"));
+      history.replaceState({}, "", location.pathname); // ryd ?code
+      setAlert("Login OK. Forbind afspilleren.", "info");
+    } catch { setAlert("Login/token-fejl.", "error"); }
+  }
+  // vis knapper efter login
+  if (getTokenSync()) {
+    $("btnConnect").classList.remove("hidden");
+  }
+  // Premium hint (hvorfor: SDK kræver Premium)
+  showPremiumWarning(true);
+})();
+</script>
+</body>
+</html>
