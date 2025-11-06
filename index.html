@@ -8,12 +8,14 @@
   <meta name="description" content="Spotify Web Playback SDK + PKCE på en statisk GitHub Pages-side.">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
-  <script async src="https://open.spotify.com/embed/iframe-api/v1" onload="window._spotifyIframeApiLoaded=true"></script>
+  <script async src="https://open.spotify.com/embed/iframe-api/v1"></script>
   <style>
     .btn{border-radius:0.75rem;border:1px solid #e5e7eb;padding:.5rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.08)}
     .card{border:1px solid #e5e7eb;border-radius:1rem;padding:1rem;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    dialog:not([open]){display:none} /* vigt.: lukket dialog må ikke blokere klik */
+    .btn, .card, a, input, button{pointer-events:auto}
   </style>
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-900">
@@ -24,8 +26,8 @@
         <h1 class="text-lg font-semibold">Spotify på GitHub Pages</h1>
       </div>
       <div class="flex items-center gap-2">
-        <button id="btnStatus" class="btn text-sm">Status</button>
-        <button id="openSettings" class="btn text-sm">Indstillinger</button>
+        <button id="btnStatus" type="button" class="btn text-sm">Status</button>
+        <button id="openSettings" type="button" class="btn text-sm">Indstillinger</button>
         <a id="backLink" href="#" class="btn text-sm" title="Tilbage">Tilbage</a>
       </div>
     </div>
@@ -42,16 +44,16 @@
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <button id="btnLogin" class="btn">Log ind med Spotify</button>
-          <button id="btnConnect" class="btn hidden">Forbind afspiller</button>
+          <button id="btnLogin" type="button" class="btn">Log ind med Spotify</button>
+          <button id="btnConnect" type="button" class="btn hidden">Forbind afspiller</button>
           <span id="premiumWarn" class="text-xs text-amber-700 hidden">Premium påkrævet for afspilning i browser.</span>
         </div>
 
         <div class="mt-4 flex flex-col gap-3">
           <div class="flex items-center gap-2">
-            <button id="btnPrev" class="btn" title="Forrige">⏮</button>
-            <button id="btnPlayPause" class="btn" title="Afspil/Pause">⏯</button>
-            <button id="btnNext" class="btn" title="Næste">⏭</button>
+            <button id="btnPrev" type="button" class="btn" title="Forrige">⏮</button>
+            <button id="btnPlayPause" type="button" class="btn" title="Afspil/Pause">⏯</button>
+            <button id="btnNext" type="button" class="btn" title="Næste">⏭</button>
             <label class="ml-4 text-sm">Lyd:
               <input id="vol" type="range" min="0" max="1" step="0.01" class="align-middle ml-2">
             </label>
@@ -78,7 +80,7 @@
         <h2 class="font-semibold">Enheder</h2>
         <div class="text-xs text-gray-600">Vælg aktiv enhed (Spotify Connect).</div>
         <div id="devices" class="mt-3 space-y-2"></div>
-        <button id="btnMakeThisDevice" class="btn mt-3 w-full">Afspil her i browseren</button>
+        <button id="btnMakeThisDevice" type="button" class="btn mt-3 w-full">Afspil her i browseren</button>
       </div>
     </section>
 
@@ -87,7 +89,7 @@
         <h2 class="font-semibold">Søg & afspil</h2>
         <div class="flex gap-2 mt-2">
           <input id="q" class="border rounded-xl px-3 py-2 flex-1" placeholder="Søg efter sang, album, kunstner, playlist…">
-          <button id="btnSearch" class="btn">Søg</button>
+          <button id="btnSearch" type="button" class="btn">Søg</button>
         </div>
         <div id="results" class="mt-3 grid gap-2"></div>
       </div>
@@ -96,7 +98,7 @@
         <h2 class="font-semibold">Embed (valgfri)</h2>
         <div class="text-xs text-gray-600">Vis en specifik Spotify URI med Spotify Embed (ikke hele web playeren).</div>
         <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M">
-        <button id="btnEmbed" class="btn mt-2 w-full">Vis embed</button>
+        <button id="btnEmbed" type="button" class="btn mt-2 w-full">Vis embed</button>
         <div id="embedHost" class="mt-3"></div>
       </div>
     </section>
@@ -114,7 +116,7 @@
       <div class="text-xs text-gray-600">Scopes: streaming, user-read-playback-state, user-modify-playback-state, user-read-currently-playing, playlist-read-private.</div>
       <div class="flex justify-end gap-2 pt-2">
         <button id="cfgClear" type="button" class="btn">Nulstil</button>
-        <button id="cfgSave" class="btn" style="background:#111;color:#fff">Gem</button>
+        <button id="cfgSave" type="button" class="btn" style="background:#111;color:#fff">Gem</button>
       </div>
     </form>
   </dialog>
@@ -124,7 +126,7 @@
   </footer>
 
 <script>
-/* --- Konstant/Util --- */
+/* ====== Konstanter / Utils ====== */
 const S = {
   scopes: [
     "streaming",
@@ -143,44 +145,35 @@ const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60)
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
 
-/* --- PKCE helpers --- */
+/* ====== PKCE ====== */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
 function randomString(len=64){ const a=new Uint8Array(len); crypto.getRandomValues(a); const abc="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"; return Array.from(a).map(n=>abc[n%abc.length]).join(""); }
 async function sha256(input){ const enc=new TextEncoder().encode(input); const hash=await crypto.subtle.digest("SHA-256",enc); return base64url(hash); }
-
-/* --- Config storage --- */
 function cfgGet(){ return { clientId:localStorage.getItem(LS.clientId)||"", redirectUri:localStorage.getItem(LS.redirectUri)||location.origin+location.pathname }; }
 function cfgSet({clientId,redirectUri}){ if(clientId)localStorage.setItem(LS.clientId,clientId.trim()); if(redirectUri)localStorage.setItem(LS.redirectUri,redirectUri.trim()); }
 function cfgClear(){ localStorage.removeItem(LS.clientId); localStorage.removeItem(LS.redirectUri); localStorage.removeItem(LS.token); localStorage.removeItem(LS.codeVerifier); }
 
-/* --- OAuth (PKCE) --- */
 async function startLogin(){
   const {clientId,redirectUri}=cfgGet();
   if(!clientId || !redirectUri || !secureUrl(redirectUri)){ setAlert("Udfyld Client ID og en gyldig HTTPS Redirect URI i Indstillinger.", "error"); $("openSettings").click(); return; }
   const verifier=randomString(64);
   localStorage.setItem(LS.codeVerifier,verifier);
   const challenge=await sha256(verifier);
-  const params=new URLSearchParams({
-    response_type:"code",
-    client_id:clientId,
-    redirect_uri:redirectUri,
-    code_challenge_method:"S256",
-    code_challenge:challenge,
-    scope:S.scopes.join(" "),
-    show_dialog:"false"
-  });
+  const params=new URLSearchParams({ response_type:"code", client_id:clientId, redirect_uri:redirectUri, code_challenge_method:"S256", code_challenge:challenge, scope:S.scopes.join(" ") });
   location.href=`${S.authz}?${params.toString()}`;
 }
+
 async function exchangeToken(authCode){
   const {clientId,redirectUri}=cfgGet();
   const code_verifier=localStorage.getItem(LS.codeVerifier);
   const body=new URLSearchParams({ grant_type:"authorization_code", code:authCode, redirect_uri:redirectUri, client_id:clientId, code_verifier });
   const r=await fetch(S.token,{ method:"POST", headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body });
-  if(!r.ok){ throw new Error("Token exchange fejlede ("+r.status+")"); }
+  if(!r.ok) throw new Error("Token exchange fejlede ("+r.status+")");
   const tok=await r.json();
   const expAt=Date.now()+(tok.expires_in*1000)-60000;
   localStorage.setItem(LS.token, JSON.stringify({...tok, expAt}));
 }
+
 async function refreshToken(){
   const raw=localStorage.getItem(LS.token); if(!raw) return;
   const tok=JSON.parse(raw); if(!tok.refresh_token) return;
@@ -191,10 +184,11 @@ async function refreshToken(){
   const nt=await r.json(); const expAt=Date.now()+(nt.expires_in*1000)-60000;
   localStorage.setItem(LS.token, JSON.stringify({ ...tok, ...nt, expAt }));
 }
+
 function getTokenSync(){ const raw=localStorage.getItem(LS.token); return raw?JSON.parse(raw):null; }
 async function ensureToken(){ const tok=getTokenSync(); if(!tok) return null; if(Date.now()>(tok.expAt||0)){ await refreshToken(); return getTokenSync(); } return tok; }
 
-/* --- Web API helper: auto-refresh ved 401 + detaljeret fejl --- */
+/* ====== API helper (401->refresh->retry) ====== */
 async function api(path, init={}, retry=true){
   const tok=await ensureToken();
   if(!tok) throw new Error("Ikke logget ind");
@@ -202,21 +196,146 @@ async function api(path, init={}, retry=true){
   headers.set("Authorization",`Bearer ${tok.access_token}`);
   if(init.body && !headers.has("Content-Type")) headers.set("Content-Type","application/json");
   const res=await fetch(S.api+path,{ ...init, headers });
-  if(res.status===401 && retry){
-    await refreshToken();
-    return api(path, init, false); // hvorfor: forsøg igen med fornyet token
-  }
+  if(res.status===401 && retry){ await refreshToken(); return api(path, init, false); }
   if(res.status===204) return null;
-  if(!res.ok){
-    let msg=""; try{ const j=await res.json(); msg=j.error?.message||JSON.stringify(j);}catch{}
-    throw new Error(`API-fejl ${res.status}: ${msg||res.statusText}`);
-  }
+  if(!res.ok){ let msg=""; try{const j=await res.json(); msg=j.error?.message||JSON.stringify(j);}catch{} throw new Error(`API-fejl ${res.status}: ${msg||res.statusText}`); }
   return res.json();
 }
 
-/* --- Player state --- */
+/* ====== Player state ====== */
 let player=null, deviceId=null, playing=false, duration=0, position=0, positionTimer=null;
 const showPremiumWarning=(b)=>$("premiumWarn").classList.toggle("hidden",!b);
 function updateNowPlayingUI(state){
   const track=state?.track_window?.current_track;
   duration=state?.duration||0; position=state?.position||0;
+  $("seek").value=duration?Math.floor((position/duration)*100):0;
+  $("posLabel").textContent=fmt(position); $("durLabel").textContent=fmt(duration);
+  if(track){ const img=track.album.images?.[0]?.url||""; if(img){ $("npCover").src=img; $("npCover").classList.remove("hidden"); }
+    $("npTitle").textContent=track.name||"–"; $("npSub").textContent=(track.artists||[]).map(a=>a.name).join(", ")||"–"; }
+}
+function startPositionTimer(){ if(positionTimer) clearInterval(positionTimer);
+  positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000); }
+
+/* ====== Devices ====== */
+async function loadDevices(){
+  const data=await api("/me/player/devices");
+  const box=$("devices"); box.innerHTML="";
+  (data?.devices||[]).forEach(d=>{
+    const btn=document.createElement("button"); btn.type="button"; btn.className="btn w-full text-left "+(d.is_active?"bg-gray-900 text-white":"");
+    btn.innerHTML=`<div class="font-medium">${d.name}</div><div class="text-xs text-gray-600">${d.type}${d.is_active?" • aktiv":""}</div>`;
+    btn.onclick=async()=>{ await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[d.id], play:true }) }); setAlert(`Overført afspilning til <strong>${d.name}</strong>.`); await syncState(); };
+    box.appendChild(btn);
+  });
+  $("npDevice").textContent=deviceId?"Browser-enhed er tilgængelig":"";
+}
+
+/* ====== Playback ====== */
+async function playUris(uris){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ uris }) }); await syncState(); }
+async function playContext(context_uri){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ context_uri }) }); await syncState(); }
+async function syncState(){ try{ const state=await player.getCurrentState(); if(state){ playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; } }catch{} }
+
+/* ====== UI wiring ====== */
+function initBackLink(){
+  const p=new URLSearchParams(location.search); const back=p.get("back"); $("year").textContent=new Date().getFullYear(); const el=$("backLink");
+  if(back && secureUrl(back)) el.href=back;
+  el.addEventListener("click",(e)=>{ if(!back){ e.preventDefault(); history.length>1?history.back():location.assign("/"); } });
+}
+
+function bindEvents(){
+  $("btnLogin").addEventListener("click", startLogin);
+  $("btnConnect").addEventListener("click", async ()=>{
+    if(!window.Spotify){ setAlert("Spotify SDK ikke klar endnu.", "error"); return; }
+    if(player) player.disconnect();
+    player=new Spotify.Player({
+      name:"GitHub Pages Player",
+      getOAuthToken:async cb=>{ const tok=await ensureToken(); if(!tok) return setAlert("Log ind først.", "error"); cb(tok.access_token); },
+      volume:0.7
+    });
+    player.addListener("ready",({device_id})=>{ deviceId=device_id; setAlert("Browser-enhed klar. Vælg ‘Afspil her i browseren’ eller start et nummer.", "info"); loadDevices(); });
+    player.addListener("not_ready",()=>{ deviceId=null; });
+    player.addListener("player_state_changed",(state)=>{ if(!state) return; playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; startPositionTimer(); });
+    player.connect();
+  });
+  $("btnMakeThisDevice").addEventListener("click", async()=>{
+    if(!deviceId){ setAlert("Forbind afspilleren først.", "error"); return; }
+    await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[deviceId], play:true }) }); await syncState(); setAlert("Afspilning overført til denne browser-enhed.");
+  });
+  $("btnPlayPause").addEventListener("click", ()=>{ player&&player.togglePlay(); });
+  $("btnNext").addEventListener("click", ()=>{ player&&player.nextTrack(); });
+  $("btnPrev").addEventListener("click", ()=>{ player&&player.previousTrack(); });
+  $("vol").addEventListener("input", (e)=>{ player&&player.setVolume(parseFloat(e.target.value)); });
+  $("seek").addEventListener("input", async (e)=>{ if(!duration) return; const pos=Math.floor((parseInt(e.target.value,10)/100)*duration); try{ await player.seek(pos);}catch{} $("posLabel").textContent=fmt(pos); });
+
+  $("btnSearch").addEventListener("click", async ()=>{
+    const q=$("q").value.trim(); if(!q) return;
+    try{
+      const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10", market:"from_token" });
+      const data=await api(`/search?${params}`);
+      const out=[];
+      function card(line1,line2,playFn){ const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
+        el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1}</div><div class="text-xs text-gray-600 truncate">${line2}</div></div>`;
+        const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el); }
+      (data.tracks?.items||[]).forEach(t=>card(t.name,(t.artists||[]).map(a=>a.name).join(", "),()=>playUris([t.uri])));
+      (data.albums?.items||[]).forEach(a=>card(a.name,a.artists.map(x=>x.name).join(", "),()=>playContext(a.uri)));
+      (data.playlists?.items||[]).forEach(p=>card(p.name,p.owner?.display_name||"Playlist",()=>playContext(p.uri)));
+      const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
+      if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
+    }catch(e){ console.error(e); setAlert("Søgning fejlede: "+e.message, "error"); }
+  });
+
+  $("btnEmbed").addEventListener("click", ()=>{
+    const uri=$("embedUri").value.trim();
+    if(!uri || !window.onSpotifyIframeApiReady && !window.Spotify) { setAlert("iFrame API ikke klar eller ugyldig URI.", "error"); return; }
+    $("embedHost").innerHTML=`<iframe style="border-radius:12px" src="https://open.spotify.com/embed?uri=${encodeURIComponent(uri)}" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+  });
+
+  $("openSettings").addEventListener("click", ()=>{
+    const dlg=$("dlgSettings"); $("cfgClientId").value=(cfgGet().clientId||""); $("cfgRedirectUri").value=(cfgGet().redirectUri||""); dlg.showModal();
+  });
+  $("cfgSave").addEventListener("click", (e)=>{ e.preventDefault(); cfgSet({ clientId:$("cfgClientId").value, redirectUri:$("cfgRedirectUri").value }); $("dlgSettings").close(); setAlert("Indstillinger gemt."); });
+  $("cfgClear").addEventListener("click", ()=>{ cfgClear(); setAlert("Indstillinger nulstillet."); });
+
+  $("btnStatus").addEventListener("click", async ()=>{
+    const tok=getTokenSync(); if(!tok){ setAlert("Ingen token. Klik ‘Log ind’.", "error"); return; }
+    let me=""; try{ const m=await api("/me"); me=`${m.display_name||m.id} (${m.country||"-"})`; }catch(e){ me="fejl: "+e.message; }
+    let test=""; try{ const d=await api(`/search?${new URLSearchParams({ q:"test", type:"track", limit:"1", market:"from_token" })}`); test=`OK (${d?.tracks?.items?.length||0})`; }catch(e){ test="fejl: "+e.message; }
+    const exp=new Date((tok.expAt||0)).toLocaleTimeString();
+    setAlert(`<div class="mono">scopes: ${tok.scope||"(ukendt)"}<br>udløber ca.: ${exp}<br>/me: ${me}<br>search: ${test}</div>`);
+  });
+}
+
+async function handleRedirect(){
+  const p=new URLSearchParams(location.search);
+  if(p.has("code")){
+    try{ await exchangeToken(p.get("code")); history.replaceState({}, "", location.pathname); setAlert("Login OK. Forbind afspilleren.", "info"); }
+    catch(err){ console.error(err); setAlert("Login/token-fejl. "+err.message, "error"); }
+  }
+}
+
+function wireUI(){
+  $("year").textContent=new Date().getFullYear();
+  const params=new URLSearchParams(location.search);
+  const back=params.get("back");
+  if(back && secureUrl(back)) $("backLink").href=back;
+  if(getTokenSync()) $("btnConnect").classList.remove("hidden");
+  setAlert("✅ JS kører. Klar til klik.", "info"); // hvorfor: bevis at script er aktivt
+  // Premium-hint: SDK kræver Premium
+  $("premiumWarn").classList.remove("hidden");
+}
+
+async function boot(){
+  try{
+    initBackLink();
+    wireUI();
+    bindEvents();
+    await handleRedirect();
+  }catch(err){
+    console.error(err);
+    setAlert("Init-fejl: "+err.message, "error"); // hvorfor: hvis init fejler, klik virker ikke
+  }
+}
+
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>
