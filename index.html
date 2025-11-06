@@ -8,7 +8,6 @@
   <meta name="description" content="Spotify Web Playback SDK + PKCE på en statisk GitHub Pages-side.">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
-  <script async src="https://open.spotify.com/embed/iframe-api/v1"></script>
   <style>
     .btn{border-radius:0.75rem;border:1px solid #e5e7eb;padding:.5rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
     .btn:hover{box-shadow:0 2px 6px rgba(0,0,0,.08)}
@@ -95,8 +94,8 @@
 
       <div class="card">
         <h2 class="font-semibold">Embed (valgfri)</h2>
-        <div class="text-xs text-gray-600">Vis en specifik Spotify URI med Spotify Embed (ikke hele web playeren).</div>
-        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M">
+        <div class="text-xs text-gray-600">Indsæt Spotify URI eller URL. Vi laver en korrekt embed-adresse.</div>
+        <input id="embedUri" class="border rounded-xl px-3 py-2 mt-2 w-full" placeholder="fx spotify:playlist:37i9dQZF1DXcBWIGoYBM5M eller https://open.spotify.com/playlist/…">
         <button id="btnEmbed" type="button" class="btn mt-2 w-full">Vis embed</button>
         <div id="embedHost" class="mt-3"></div>
       </div>
@@ -133,7 +132,6 @@ const S = {
     "user-modify-playback-state",
     "user-read-currently-playing",
     "playlist-read-private"
-    // Bemærk: vi TILFØJER IKKE 'user-read-private' her (så undgår vi 403 fra from_token)
   ],
   authz: "https://accounts.spotify.com/authorize",
   token: "https://accounts.spotify.com/api/token",
@@ -144,6 +142,10 @@ const $ = (id) => document.getElementById(id);
 const fmt = (ms) => { const t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60),s=t%60; return `${m}:${s.toString().padStart(2,"0")}`; };
 function setAlert(html,type="info"){ const c=document.createElement("div"); c.className="rounded-xl border p-3 text-sm "+(type==="error"?"border-red-300 bg-red-50 text-red-800":"border-gray-300 bg-gray-50"); c.innerHTML=html; $("alerts").innerHTML=""; $("alerts").appendChild(c); }
 function secureUrl(u){ try{const x=new URL(u);return x.protocol==="https:";}catch{ return false; }}
+
+/* Spotify SDK global callback (fjerner konsol-fejl) */
+let sdkReady = false;
+window.onSpotifyWebPlaybackSDKReady = () => { sdkReady = true; };
 
 /* ===== PKCE ===== */
 function base64url(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
@@ -201,15 +203,15 @@ async function api(path, init={}, retry=true){
   return res.json();
 }
 
-/* ===== Player state / UI ===== */
+/* ===== Player / UI ===== */
 let player=null, deviceId=null, playing=false, duration=0, position=0, positionTimer=null;
 function updateNowPlayingUI(state){
   const track=state?.track_window?.current_track;
   duration=state?.duration||0; position=state?.position||0;
   $("seek").value=duration?Math.floor((position/duration)*100):0;
   $("posLabel").textContent=fmt(position); $("durLabel").textContent=fmt(duration);
-  if(track){ const img=track.album.images?.[0]?.url||""; if(img){ $("npCover").src=img; $("npCover").classList.remove("hidden"); }
-    $("npTitle").textContent=track.name||"–"; $("npSub").textContent=(track.artists||[]).map(a=>a.name).join(", ")||"–"; }
+  if(track){ const img=track.album?.images?.[0]?.url||""; if(img){ $("npCover").src=img; $("npCover").classList.remove("hidden"); }
+    $("npTitle").textContent=track.name||"–"; $("npSub").textContent=(track.artists||[]).map(a=>a?.name).filter(Boolean).join(", ")||"–"; }
 }
 function startPositionTimer(){ if(positionTimer) clearInterval(positionTimer);
   positionTimer=setInterval(()=>{ if(playing && duration>0){ position=Math.min(duration,position+1000); $("seek").value=Math.floor((position/duration)*100); $("posLabel").textContent=fmt(position);} },1000); }
@@ -218,10 +220,10 @@ function startPositionTimer(){ if(positionTimer) clearInterval(positionTimer);
 async function loadDevices(){
   const data=await api("/me/player/devices");
   const box=$("devices"); box.innerHTML="";
-  (data?.devices||[]).forEach(d=>{
+  (data?.devices||[]).filter(Boolean).forEach(d=>{
     const btn=document.createElement("button"); btn.type="button"; btn.className="btn w-full text-left "+(d.is_active?"bg-gray-900 text-white":"");
-    btn.innerHTML=`<div class="font-medium">${d.name}</div><div class="text-xs text-gray-600">${d.type}${d.is_active?" • aktiv":""}</div>`;
-    btn.onclick=async()=>{ await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[d.id], play:true }) }); setAlert(`Overført afspilning til <strong>${d.name}</strong>.`); await syncState(); };
+    btn.innerHTML=`<div class="font-medium">${d.name||"(ukendt enhed)"}</div><div class="text-xs text-gray-600">${d.type||"Enhed"}${d.is_active?" • aktiv":""}</div>`;
+    btn.onclick=async()=>{ await api("/me/player",{ method:"PUT", body:JSON.stringify({ device_ids:[d.id], play:true }) }); setAlert(`Overført afspilning til <strong>${d.name||"enhed"}</strong>.`); await syncState(); };
     box.appendChild(btn);
   });
   $("npDevice").textContent=deviceId?"Browser-enhed er tilgængelig":"";
@@ -231,6 +233,11 @@ async function loadDevices(){
 async function playUris(uris){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ uris }) }); await syncState(); }
 async function playContext(context_uri){ await api(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`,{ method:"PUT", body:JSON.stringify({ context_uri }) }); await syncState(); }
 async function syncState(){ try{ const state=await player.getCurrentState(); if(state){ playing=!state.paused; updateNowPlayingUI(state); $("btnPlayPause").textContent=state.paused?"▶️":"⏸"; } }catch{} }
+
+/* ===== Search helpers ===== */
+const arr = (x)=> Array.isArray(x) ? x.filter(Boolean) : [];
+function artistNames(x){ return arr(x?.artists).map(a=>a?.name).filter(Boolean).join(", ") || "–"; }
+function ownerName(p){ return p?.owner?.display_name || p?.owner?.id || "Playlist"; }
 
 /* ===== UI wiring ===== */
 function initBackLink(){
@@ -243,7 +250,7 @@ function initBackLink(){
 function bindEvents(){
   $("btnLogin").addEventListener("click", startLogin);
   $("btnConnect").addEventListener("click", async ()=>{
-    if(!window.Spotify){ setAlert("Spotify SDK ikke klar endnu.", "error"); return; }
+    if(!sdkReady && !window.Spotify){ setAlert("Spotify SDK ikke klar endnu.", "error"); return; }
     if(player) player.disconnect();
     player=new Spotify.Player({
       name:"GitHub Pages Player",
@@ -267,9 +274,10 @@ function bindEvents(){
 
   $("btnSearch").addEventListener("click", doSearch);
   $("btnEmbed").addEventListener("click", ()=>{
-    const uri=$("embedUri").value.trim();
-    if(!uri){ setAlert("Ugyldig URI.", "error"); return; }
-    $("embedHost").innerHTML=`<iframe style="border-radius:12px" src="https://open.spotify.com/embed?uri=${encodeURIComponent(uri)}" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+    const raw=$("embedUri").value.trim();
+    const url = toEmbedUrl(raw);
+    if(!url){ setAlert("Ugyldig Spotify URI/URL.", "error"); return; }
+    $("embedHost").innerHTML=`<iframe style="border-radius:12px" src="${url}" width="100%" height="180" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
   });
 
   $("openSettings").addEventListener("click", ()=>{
@@ -284,25 +292,10 @@ function bindEvents(){
 async function doSearch(){
   const q=$("q").value.trim(); if(!q) return;
   try{
-    // Første forsøg: UDEN market (kræver ingen ekstra scopes)
-    const params1=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
-    let data=await api(`/search?${params1}`);
-    // Hvis 0 resultater, prøv med fast market (DK) – aldrig from_token her
-    if((data?.tracks?.items?.length||0)+(data?.albums?.items?.length||0)+(data?.playlists?.items?.length||0)===0){
-      const params2=new URLSearchParams({ q, type:"track,album,playlist", limit:"10", market:"DK" });
-      data=await api(`/search?${params2}`);
-    }
+    const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
+    const data=await api(`/search?${params}`);
     renderResults(data);
   }catch(e){
-    // Hvis fejlen skyldes 'Insufficient client scope' (fra evt. ældre versioner), prøv uden market igen
-    if(String(e.message).includes("Insufficient client scope")){
-      try{
-        const params=new URLSearchParams({ q, type:"track,album,playlist", limit:"10" });
-        const data=await api(`/search?${params}`);
-        renderResults(data);
-        return;
-      }catch(_) {}
-    }
     console.error(e);
     setAlert("Søgning fejlede: "+e.message, "error");
   }
@@ -312,14 +305,36 @@ function renderResults(data){
   const out=[];
   function card(line1,line2,playFn){
     const el=document.createElement("div"); el.className="border rounded-xl p-3 flex items-center justify-between gap-3";
-    el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1}</div><div class="text-xs text-gray-600 truncate">${line2}</div></div>`;
+    el.innerHTML=`<div class="min-w-0"><div class="font-medium truncate">${line1||"–"}</div><div class="text-xs text-gray-600 truncate">${line2||"–"}</div></div>`;
     const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Afspil her"; b.onclick=playFn; el.appendChild(b); out.push(el);
   }
-  (data.tracks?.items||[]).forEach(t=>card(t.name,(t.artists||[]).map(a=>a.name).join(", "),()=>playUris([t.uri])));
-  (data.albums?.items||[]).forEach(a=>card(a.name,a.artists.map(x=>x.name).join(", "),()=>playContext(a.uri)));
-  (data.playlists?.items||[]).forEach(p=>card(p.name,p.owner?.display_name||"Playlist",()=>playContext(p.uri)));
+  arr(data?.tracks?.items).forEach(t => card(t?.name, artistNames(t), ()=>playUris([t?.uri].filter(Boolean))));
+  arr(data?.albums?.items).forEach(a => card(a?.name, artistNames(a), ()=>playContext(a?.uri)));
+  arr(data?.playlists?.items).forEach(p => card(p?.name, ownerName(p), ()=>playContext(p?.uri)));
+
   const host=$("results"); host.innerHTML=""; out.forEach(x=>host.appendChild(x));
   if(out.length===0) setAlert("Ingen resultater. Prøv et andet søgeord.", "info");
+}
+
+function toEmbedUrl(input){
+  if(!input) return null;
+  try{
+    if(input.startsWith("spotify:")){
+      const parts = input.split(":"); // spotify:type:id
+      const type = parts[1], id = parts[2];
+      if(!type || !id) return null;
+      return `https://open.spotify.com/embed/${type}/${id}`;
+    }
+    if(input.startsWith("http")){
+      const u = new URL(input);
+      if(u.hostname !== "open.spotify.com") return null;
+      const seg = u.pathname.replace(/^\/+|\/+$/g,"").split("/");
+      const [type,id] = seg;
+      if(!type || !id) return null;
+      return `https://open.spotify.com/embed/${type}/${id}`;
+    }
+  }catch{ return null; }
+  return null;
 }
 
 async function showStatus(){
